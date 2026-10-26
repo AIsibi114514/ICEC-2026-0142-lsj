@@ -1,0 +1,21 @@
+# 系统与编辑器产生的临时文件
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+
+# 编辑器配置
+.vscode/
+.idea/
+
+# 依赖与缓存
+node_modules/
+__pycache__/
+*.pyc
+
+# 大体积媒体，按需改为外部链接引用
+*.mp4
+*.mov
+*.zip
+*.7z
+*.rar

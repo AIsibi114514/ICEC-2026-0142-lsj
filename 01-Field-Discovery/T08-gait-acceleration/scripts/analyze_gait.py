@@ -36,22 +36,24 @@ warnings.filterwarnings("ignore")
 # 0. 常量与配置
 # ----------------------------------------------------------------------------
 
-STATES = ["S1_STATIC", "S2_WALK", "S3_RUN", "S4_STAIR"]
+STATES = ["S1_STATIC", "S2_WALK", "S3_RUN", "S4_STAIR_UP", "S4_STAIR_DOWN"]
 STATE_CN = {
     "S1_STATIC": "静止",
     "S2_WALK": "平地慢走",
     "S3_RUN": "快跑",
-    "S4_STAIR": "上下楼梯",
+    "S4_STAIR_UP": "上楼",
+    "S4_STAIR_DOWN": "下楼",
 }
 STATE_COLOR = {
     "S1_STATIC": "#4C78A8",
     "S2_WALK": "#F5A623",
     "S3_RUN": "#E45756",
-    "S4_STAIR": "#3E9E8F",
+    "S4_STAIR_UP": "#3E9E8F",
+    "S4_STAIR_DOWN": "#8F6FB5",
 }
 AXIS_COLOR = {"X": "#7BAFD4", "Y": "#E8B36A", "Z": "#C97C7C", "MAG": "#1F2A38"}
 
-WINDOW_S = 1.0          # 切窗长度（秒）：1.0s ≈ 1.6 个慢走步态周期，是按实测录制时长标定的
+WINDOW_S = 2.0          # 切窗长度（秒）：2.0s → 频域分辨率 0.5Hz，步频判据才可用
 WINDOW_OVERLAP = 0.0    # 不重叠
 TRIM_HEAD_S = 3.0       # 丢弃开头（放手机、站定的基线过程），实际按录制时长自适应收缩
 TRIM_TAIL_S = 1.5       # 丢弃结尾（掏手机、点停止），同样自适应
@@ -212,20 +214,18 @@ class Recording:
 
 
 def parse_filename(name: str) -> tuple[str, str]:
-    """S2_WALK_01_20261112-1540.csv -> (S2_WALK, 01)"""
+    """S2_WALK_01_20261112-1540.csv -> (S2_WALK, 01)
+       S4_STAIR_UP_02_20261112-1650.csv -> (S4_STAIR_UP, 02)
+
+    状态代号按长度降序匹配，否则 S4_STAIR 会先劫持 S4_STAIR_UP 的前缀。
+    """
     stem = Path(name).stem
-    parts = stem.split("_")
-    state = None
-    rep = "01"
-    if len(parts) >= 2 and f"{parts[0]}_{parts[1]}" in STATES:
-        state = f"{parts[0]}_{parts[1]}"
-        if len(parts) >= 3 and parts[2].isdigit():
-            rep = parts[2]
-    elif parts and parts[0] in STATES:
-        state = parts[0]
-        if len(parts) >= 2 and parts[1].isdigit():
-            rep = parts[1]
-    return state, rep
+    for st in sorted(STATES, key=len, reverse=True):
+        if stem == st or stem.startswith(st + "_"):
+            rest = stem[len(st) + 1:] if stem != st else ""
+            head = rest.split("_")[0] if rest else ""
+            return st, (head if head.isdigit() else "01")
+    return None, "01"
 
 
 def load_recording(path: Path) -> Recording | None:
@@ -271,8 +271,17 @@ def load_recording(path: Path) -> Recording | None:
     fs = float(1.0 / np.median(dt)) if dt.size else 0.0
     duration = float(t[-1] - t[0])
 
-    # ---- 重力分离：含 g 的数据必须先减掉重力，否则静止时读数也是 9.8 ----
-    (x, y, z), has_g, g_mag = split_gravity(x, y, z, fs)
+    # ---- 重力分离 ----
+    # 列名含 "linear"（Phyphox「线性加速度」实验）说明传感器层面已去重力。
+    # 此时若再做一次低通减法，会把真实的低频运动成分一起减掉——
+    # 实测反例：快跑段低通模长 6.53 > 判定阈值 3.0，会被误判成"含重力"。
+    # 所以列名优先于幅值判据。
+    col_x = str(cm["x"]).lower()
+    already_linear = ("linear" in col_x) or ("线性" in col_x)
+    if already_linear:
+        has_g, g_mag = False, 0.0
+    else:
+        (x, y, z), has_g, g_mag = split_gravity(x, y, z, fs)
     mag = np.sqrt(x ** 2 + y ** 2 + z ** 2)
 
     # ---- 自适应去头去尾：录制时长不足 30s 时按比例收缩，保住窗口长度一致 ----
@@ -686,7 +695,7 @@ def _setup_mpl():
 
 def fig_waveforms(recs, out: Path, plt):
     """图1：4 状态三轴 + 合加速度波形对比（每状态取 rep 最小的一段）。"""
-    fig, axes = plt.subplots(4, 1, figsize=(11, 10), sharex=True)
+    fig, axes = plt.subplots(len(STATES), 1, figsize=(11, 2.5 * len(STATES)), sharex=True)
     for ax, state in zip(axes, STATES):
         cand = sorted([r for r in recs if r.state == state], key=lambda r: r.rep)
         if not cand:
@@ -711,7 +720,9 @@ def fig_waveforms(recs, out: Path, plt):
         fig.legend(handles, labels, loc="upper right", ncol=4, fontsize=9,
                    frameon=False, bbox_to_anchor=(0.995, 0.972))
     axes[-1].set_xlabel("时间 (s)　← 灰色区域为丢弃的开头基线段", fontsize=10)
-    fig.suptitle("四种步态状态的三轴加速度波形对比", fontsize=14, y=0.998, fontweight="bold")
+    _cn = {1: "一", 2: "两", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七"}
+    fig.suptitle(f"{_cn.get(len(STATES), len(STATES))}种步态状态的三轴加速度波形对比",
+                 fontsize=14, y=0.998, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.945])
     p = out / "fig1_waveform_4states.png"
     fig.savefig(p, dpi=150, bbox_inches="tight")

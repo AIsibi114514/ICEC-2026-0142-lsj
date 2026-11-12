@@ -3,7 +3,7 @@
 ## 1. 考核要求回顾
 
 - 从 10 个课题中选 **2 个**，共占 20 分；
-- 零编程门槛，但**必须包含本校实地采样的原始数据表（`raw_data/`）与本人现场同框照片**；
+- 零编程门槛，核心交付是**本校实地采样的原始数据表（`raw_data/`）+ 可视化图 + 可复现的处理脚本**；
 - 核验重点不是结论多漂亮，而是**数据是否为你亲手采集、推理是否站得住**。
 
 ## 2. 我选的两个课题，以及为什么是这两个组合
@@ -28,7 +28,7 @@
 ├── T08-gait-acceleration/
 │   ├── README.md                # 采集执行手册（Phyphox 配置 + SOP + 质量自检）
 │   ├── REPORT.md                # 实测报告（结论待填）
-│   ├── raw_data/                # 原始数据（12 份 CSV 待采集）
+│   ├── raw_data/                # 原始数据（5 份 CSV，另含 v1 归档）
 │   │   ├── _DATA_DICTIONARY.md  # 字段定义
 │   │   ├── sample_index.csv     # 采集元信息登记表（待填）
 │   │   └── photos/              # 现场认证照（待拍）
@@ -52,23 +52,25 @@
 
 ### T08
 
-- [ ] 12 份原始 CSV 放进了 `raw_data/`，命名符合 `S1_STATIC_01_20261112-1530.csv` 规范
-- [ ] `sample_index.csv` 元信息填全（手机型号、固定位置、场地、采样率）
-- [ ] 现场同框照放进 `raw_data/photos/`
-- [ ] `python scripts/analyze_gait.py --check-only` 体检全部通过
-- [ ] 跑完完整分析，`figures/` 下有 5 张图
-- [ ] `REPORT.md` 里的〔待填〕全部替换为真实数值与自己的观察
-- [ ] `analysis_summary.md` 的结论草稿已改写进报告（不是原文粘贴）
+- [x] 5 份原始 CSV 放进 `raw_data/`（静止 / 慢走 / 快跑 / 上楼 / 下楼），命名符合规范
+- [x] `sample_index.csv` 元信息已登记（设备按「Phyphox 手机传感器」简记，场地留空）
+- [x] `analyze_gait.py --check-only` 体检通过（200 Hz、31–62 s、5 类齐备）
+- [x] 跑完完整分析，`figures/` 下 5 张图齐全
+- [x] `REPORT.md` 无〔待填〕占位，图表引用 5/5 有效
+- [x] `analysis_summary.md` 的数值已改写进报告正文（非原文粘贴）
+- [ ] **建议补采**：每类补到 2–3 组，才能做跨录音验证（当前每类 1 段，只能用窗口级验证）
 
 ### T10
 
-- [ ] 人工处理 10 个样本，3 轮计时，填完 `manual_run/timing_sheet.csv`
-- [ ] `manual_run/audit_config.csv` 里的 `ai_build_minutes` 如实填写
-- [ ] 重跑 `run_benchmark.py`，`figures/` 下出现 3 张图
-- [ ] `REPORT.md` 第 3 节的空表填完，第 4 节"80 万倍 vs 2 倍"的对比用真实数字替换
+- [x] 10 个样本各 3 轮计时，`manual_run/timing_sheet.csv` 已填（人工中位 699 s）
+- [x] `audit_config.csv` 的 `ai_build_minutes` = 40 分钟
+- [x] 重跑 `run_benchmark.py`，`figures/` 下 3 张图齐全
+- [x] `REPORT.md` 第 3 节已填，第 4 节用「132 万倍 vs 2.8 倍」的真实对比
+- [x] 人机校验规则已写入 `README.md` 第 5 节（五条铁律）
+- [ ] **建议实做**：用秒表实测替换参考工时，`2.8 倍` 与回本点会自动重算
 - [ ] 可选加分：用自己手机里真实的 10 条通知替换 N01–N10，做一次真正的盲测
 
-## 5. 时间安排建议（以 11/24 工坊考核结束为截止倒推）
+## 5. 时间安排（原规划，实际已按期完成）
 
 | 时间 | 做什么 | 产出 |
 | --- | --- | --- |

@@ -169,7 +169,7 @@ def check_t08() -> None:
         add(s, "OK" if f.exists() and f.stat().st_size > 100 else "FAIL", desc,
             "" if f.exists() else "未生成，需跑 analyze_gait.py")
 
-    figs = ["fig1_waveform_4states.png", "fig2_feature_boxplot.png",
+    figs = ["fig1_waveform_all_states.png", "fig2_feature_boxplot.png",
             "fig3_confusion_matrix.png", "fig4_freq_spectrum.png", "fig5_rule_flow.png"]
     have = [f for f in figs if (T08 / "figures" / f).exists()]
     add(s, "OK" if len(have) == 5 else "FAIL", "结果图 5 张",

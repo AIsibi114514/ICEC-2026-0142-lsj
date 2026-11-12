@@ -86,7 +86,7 @@ Phyphox 的「线性加速度」实验在传感器层就用陀螺仪辅助去掉
 
 ### 4.1 五状态波形
 
-![五状态三轴波形](figures/fig1_waveform_4states.png)
+![五状态三轴波形](figures/fig1_waveform_all_states.png)
 
 波形围绕 0 波动（线性加速度的应有形态），五个子图呈现出清晰的层次：
 

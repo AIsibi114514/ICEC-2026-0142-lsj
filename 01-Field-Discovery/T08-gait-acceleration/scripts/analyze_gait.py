@@ -724,7 +724,7 @@ def fig_waveforms(recs, out: Path, plt):
     fig.suptitle(f"{_cn.get(len(STATES), len(STATES))}种步态状态的三轴加速度波形对比",
                  fontsize=14, y=0.998, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.945])
-    p = out / "fig1_waveform_4states.png"
+    p = out / "fig1_waveform_all_states.png"
     fig.savefig(p, dpi=150, bbox_inches="tight")
     plt.close(fig)
     return p

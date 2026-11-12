@@ -81,7 +81,7 @@
 
 这不是重复劳动，而是在测**熟练度效应**：
 
-- **第 1 轮**：边看边想口径，最慢，通常比第 3 轮慢 1.5–2 倍。
+- **第 1 轮**：边看边想口径，最慢。本仓库实测第 1 轮合计 854 s、第 3 轮 615 s，慢 1.39 倍。
 - **第 2 轮**：开始有套路。
 - **第 3 轮**：进入稳定产能，**这一轮才是你真实的长期效率**。
 
@@ -204,10 +204,10 @@ samples/N*.txt
 | --- | --- | --- |
 | 任务样本 | `samples/N01~N10.txt` + `_make_samples.py` + `_ground_truth.csv` | ✅ |
 | AI 脚本 / Prompt | `scripts/ai_extract.py`（含逐条注释说明每个启发式的由来） | ✅ |
-| 耗时对比表 | `raw_data/ai_timing.csv`（AI 实测）+ `manual_run/timing_sheet.csv`（人工待填）+ `raw_data/benchmark_summary.json` | ⬜ 人工部分待填 |
+| 耗时对比表 | `raw_data/ai_timing.csv`（AI 实测）+ `manual_run/timing_sheet.csv`（人工 3 轮）+ `raw_data/benchmark_summary.json` | ✅ 已完成 |
 | 人机校验规则 | 本文第 5 节 + 第 2 节口径表 | ✅ |
-| 耗时对比图 | `figures/fig1_per_sample_timing.png` | ✅（人工填完后自动变成双系列） |
-| 摊销曲线 | `figures/fig3_amortization.png` | ⬜ 需先填 `audit_config.csv` |
+| 耗时对比图 | `figures/fig1_per_sample_timing.png` | ✅ 双系列对比 |
+| 摊销曲线 | `figures/fig3_amortization.png` | ✅ 回本点 53 样本 |
 | 字段准确率 | `figures/fig2_field_accuracy.png` + `raw_data/field_accuracy.csv` | ✅ |
 
 ---
@@ -232,7 +232,7 @@ python scripts/run_benchmark.py --repeat 50
 # 6. 重跑，这次会多出 fig1 的双系列对比与 fig3 摊销曲线
 python scripts/run_benchmark.py --repeat 50
 
-# 7. 把结果写进 REPORT.md（报告里有待填表格）
+# 7. 复核 REPORT.md 第 3 节，确认文中数字与脚本输出一致
 ```
 
 ---

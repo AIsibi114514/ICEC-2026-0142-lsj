@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import statistics
 import time
 from pathlib import Path
@@ -141,7 +142,7 @@ def load_manual() -> dict | None:
         rows = list(csv.DictReader(fh))
     if not rows:
         return None
-    per_sample, ok = {}, True
+    per_sample, check_s, ok = {}, {}, True
     for r in rows:
         vals = []
         for k in ("manual_round1_s", "manual_round2_s", "manual_round3_s"):
@@ -157,9 +158,15 @@ def load_manual() -> dict | None:
         if not ok:
             break
         per_sample[r["sample_id"]] = statistics.median(vals)
+        try:
+            check_s[r["sample_id"]] = float((r.get("ai_check_s") or 0) or 0)
+        except ValueError:
+            check_s[r["sample_id"]] = 0.0
     if not ok or not per_sample:
         return None
-    return {"per_sample_s": per_sample, "total_s": sum(per_sample.values()), "n": len(per_sample)}
+    return {"per_sample_s": per_sample, "total_s": sum(per_sample.values()),
+            "n": len(per_sample), "check_s": check_s,
+            "check_total_s": sum(check_s.values())}
 
 
 def load_config() -> dict:
@@ -206,10 +213,16 @@ def make_figures(per_file, manual, acc_summary, cfg, ai_per_sample_ms):
         for i, v in enumerate(man_s):
             ax.text(i - w / 2, v * 1.6, f"{v/1000:.1f}s", ha="center", fontsize=7.5, color="#8A4B4B")
         for i, v in enumerate(ai_ms):
-            ax.text(i + w / 2, max(v, 1) * 1.6, f"{v:.3f}ms", ha="center", fontsize=7, color="#22705F")
+            # 对数轴上用"乘固定倍率"定位，柱高 0.05 与 1 之间的视觉差距才正常
+            ax.text(i + w / 2, v * 2.2, f"{v:.3f}ms", ha="center", va="bottom", fontsize=7, color="#22705F")
         ax.set_yscale("log")
+        ax.set_ylim(bottom=min(ai_ms) * 0.35)
         ax.set_ylabel("单样本处理耗时（毫秒，对数轴）", fontsize=10.5)
-        ax.set_title("逐样本耗时对比：AI 与人工差 3–4 个数量级，所以必须用对数轴", fontsize=13, loc="left")
+        man_med = statistics.median(man_s)
+        ai_med = statistics.median(ai_ms)
+        orders = math.log10(man_med / ai_med) if ai_med > 0 else 0
+        ax.set_title(f"逐样本耗时对比：AI 与人工差约 {orders:.0f} 个数量级，所以必须用对数轴",
+                     fontsize=13, loc="left")
     else:
         ax.bar(list(x), ai_ms, 0.5, label="AI 流水线", color="#3E9E8F", alpha=0.9)
         for i, v in enumerate(ai_ms):
@@ -218,7 +231,7 @@ def make_figures(per_file, manual, acc_summary, cfg, ai_per_sample_ms):
         ax.set_title("逐样本耗时（AI 流水线）· 人工耗时待填后可对比", fontsize=13, loc="left")
     ax.set_xticks(list(x))
     ax.set_xticklabels([f.replace(".txt", "") for f in files], fontsize=9)
-    ax.legend(frameon=False, fontsize=10)
+    ax.legend(frameon=False, fontsize=10, ncol=2, loc="upper center", bbox_to_anchor=(0.5, -0.10))
     ax.grid(True, axis="y", lw=0.6, alpha=0.7)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
@@ -253,16 +266,22 @@ def make_figures(per_file, manual, acc_summary, cfg, ai_per_sample_ms):
     if manual:
         build_s = cfg["ai_build_minutes"] * 60
         man_per = manual["total_s"] / manual["n"]
-        ai_per = ai_per_sample_ms / 1000.0
-        ns = list(range(1, 41))
+        chk_per = manual["check_total_s"] / manual["n"]
+        ai_per = chk_per + ai_per_sample_ms / 1000.0   # 含人工校验，才是真实单次成本
+        # x 轴要能覆盖回本点，否则图上看起来"AI 永远更慢"，反而误导
+        n_max = 40
+        if man_per > ai_per:
+            n_max = int(max(40, (build_s / (man_per - ai_per)) * 1.35))
+        ns = list(range(1, n_max + 1))
         man_curve = [n * man_per / 60 for n in ns]
         ai_curve = [(build_s + n * ai_per) / 60 for n in ns]
         fig, ax = plt.subplots(figsize=(9.4, 5))
         ax.plot(ns, man_curve, lw=2.2, color="#C97C7C", label="人工：随样本数线性增长")
-        ax.plot(ns, ai_curve, lw=2.2, color="#3E9E8F", label=f"AI：一次性构建 {cfg['ai_build_minutes']:.0f} 分钟后近乎平line")
+        ax.plot(ns, ai_curve, lw=2.2, color="#3E9E8F",
+                label=f"AI：一次性构建 {cfg['ai_build_minutes']:.0f} 分钟后，单次成本极低")
         if man_per > ai_per:
             be = build_s / (man_per - ai_per)
-            if 1 <= be <= 40:
+            if 1 <= be <= n_max:
                 ax.axvline(be, ls="--", lw=1.4, color="#8899AA")
                 ax.annotate(f"回本点 ≈ {be:.0f} 个样本", xy=(be, be * man_per / 60),
                             xytext=(be + 2, be * man_per / 60 * 0.55), fontsize=10,
@@ -343,7 +362,13 @@ def main() -> int:
     print("③ 人工数据：" + ("已载入 manual_run/timing_sheet.csv" if manual else "未填写，跳过对比（图1/图3 将只显示 AI）"))
     if manual:
         man_per = manual["total_s"] / manual["n"]
-        print(f"   人工单样本中位耗时：{man_per:.1f} s → AI 快 {man_per / (ai_per_sample_ms/1000):.0f} 倍")
+        chk_per = manual["check_total_s"] / manual["n"]
+        real_per = chk_per + ai_per_sample_ms / 1000.0
+        print(f"   人工单样本耗时（中位）：{man_per:.1f} s")
+        print(f"   纯计算比：{man_per / (ai_per_sample_ms/1000):,.0f} 倍"
+              f"　← 这个数字没有意义，因为 AI 的输出必须有人校验")
+        print(f"   AI 路径单样本耗时（机器 {ai_per_sample_ms/1000:.4f}s + 人工校验 {chk_per:.1f}s）：{real_per:.1f} s")
+        print(f"   含校验的真实提速：{man_per / real_per:.1f} 倍")
 
     summary = {
         "generated_by": "scripts/run_benchmark.py",

@@ -1,3 +1,3 @@
-key,value,unit,note
-ai_build_minutes,0,min,"AI 流水线一次性构建耗时：从提出需求到脚本跑通的实际时长（本次会话记录）"
-manual_setup_minutes,0,min,"人工处理的一次性准备耗时：如建表头、想清楚字段口径的时长"
+﻿key,value,unit,note
+ai_build_minutes,40,min,从提出需求到 ai_extract.py 跑通的累计耗时（含 6 轮正则修正）
+manual_setup_minutes,5,min,建表头与确定字段口径

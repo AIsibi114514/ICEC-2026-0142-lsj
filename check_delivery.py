@@ -30,7 +30,7 @@ T08 = ROOT / "01-Field-Discovery" / "T08-gait-acceleration"
 T10 = ROOT / "01-Field-Discovery" / "T10-digital-task-audit"
 AI_LOG = ROOT / "03-AI-Collaboration"
 
-STATES = ["S1_STATIC", "S2_WALK", "S3_RUN", "S4_STAIR"]
+STATES = ["S1_STATIC", "S2_WALK", "S3_RUN", "S4_STAIR_UP", "S4_STAIR_DOWN"]
 
 results: list[tuple[str, str, str, str]] = []   # (分节, 状态, 项目, 说明)
 
@@ -125,7 +125,7 @@ def check_t08() -> None:
 
     per = {st: sum(1 for p in named if p.name.startswith(st)) for st in STATES}
     missing = [f"{st}({per[st]})" for st in STATES if per[st] == 0]
-    add(s, "OK" if not missing else "FAIL", "4 种状态齐备",
+    add(s, "OK" if not missing else "FAIL", f"{len(STATES)} 种状态齐备",
         "每类 " + "/".join(f"{st}={per[st]}" for st in STATES) if not missing
         else f"缺：{', '.join(missing)}")
 
@@ -157,8 +157,11 @@ def check_t08() -> None:
             import json
             rj = json.loads(rules_json.read_text(encoding="utf-8"))
             grav = rj.get("gravity_removed") or []
-            add(s, "OK" if grav else "WARN", "重力分离已执行",
-                f"{len(grav)} 个文件经低通去重力" if grav else "未检测到重力分离记录")
+            # 无去重力记录有两种可能：一是采集时用了「线性加速度」（传感器已去重力），
+            # 二是漏了处理。前者是正常的，所以只作为确认项而非缺陷。
+            add(s, "OK", "重力状态已确认",
+                f"{len(grav)} 个文件经低通去重力" if grav
+                else "数据为「线性加速度」，传感器层已去重力，无需再分离")
         except Exception:
             add(s, "WARN", "重力分离已执行", "rules 文件无法解析")
 

@@ -1,0 +1,141 @@
+{
+  "rule_id": "dt_depth4",
+  "cv_mode": "按窗口分层（宽松，仅窗口级验证）",
+  "files_per_state": {
+    "S1_STATIC": 1,
+    "S2_WALK": 1,
+    "S3_RUN": 1,
+    "S4_STAIR": 1
+  },
+  "generated_by": "scripts/analyze_gait.py",
+  "input_files": [
+    "S1_STATIC_01_20261112-1600.csv",
+    "S2_WALK_01_20261112-1602.csv",
+    "S3_RUN_01_20261112-1604.csv",
+    "S4_STAIR_01_20261112-1606.csv"
+  ],
+  "window_s": 1.0,
+  "n_windows": 27,
+  "gravity_removed": [
+    "S1_STATIC_01_20261112-1600.csv",
+    "S2_WALK_01_20261112-1602.csv",
+    "S3_RUN_01_20261112-1604.csv",
+    "S4_STAIR_01_20261112-1606.csv"
+  ],
+  "as_pseudocode": [
+    "if std_mag <= 0.520:",
+    "→ S1_STATIC（静止）    # n=8",
+    "else:    # std_mag > 0.520",
+    "if std_mag <= 7.724:",
+    "if zcr <= 0.024:",
+    "→ S2_WALK（平地慢走）    # n=8",
+    "else:    # zcr > 0.024",
+    "→ S4_STAIR（上下楼梯）    # n=7",
+    "else:    # std_mag > 7.724",
+    "→ S3_RUN（快跑）    # n=4"
+  ],
+  "tree": {
+    "feature": "std_mag",
+    "threshold": 0.5201,
+    "n": 27,
+    "dist": {
+      "S1_STATIC": 8,
+      "S2_WALK": 6,
+      "S3_RUN": 4,
+      "S4_STAIR": 9
+    },
+    "left(<=)": {
+      "label": "S1_STATIC",
+      "n": 8,
+      "dist": {
+        "S1_STATIC": 8
+      }
+    },
+    "right(>)": {
+      "feature": "std_mag",
+      "threshold": 7.7238,
+      "n": 19,
+      "dist": {
+        "S2_WALK": 6,
+        "S3_RUN": 4,
+        "S4_STAIR": 9
+      },
+      "left(<=)": {
+        "feature": "zcr",
+        "threshold": 0.0238,
+        "n": 15,
+        "dist": {
+          "S2_WALK": 6,
+          "S4_STAIR": 9
+        },
+        "left(<=)": {
+          "label": "S2_WALK",
+          "n": 8,
+          "dist": {
+            "S2_WALK": 6,
+            "S4_STAIR": 2
+          }
+        },
+        "right(>)": {
+          "label": "S4_STAIR",
+          "n": 7,
+          "dist": {
+            "S4_STAIR": 7
+          }
+        }
+      },
+      "right(>)": {
+        "label": "S3_RUN",
+        "n": 4,
+        "dist": {
+          "S3_RUN": 4
+        }
+      }
+    }
+  },
+  "cv_accuracy": 0.7778,
+  "per_state_recall": {
+    "S1_STATIC": 1.0,
+    "S2_WALK": 0.833,
+    "S3_RUN": 1.0,
+    "S4_STAIR": 0.444
+  },
+  "per_state_precision": {
+    "S1_STATIC": 1.0,
+    "S2_WALK": 0.556,
+    "S3_RUN": 0.667,
+    "S4_STAIR": 1.0
+  },
+  "confusion_matrix": [
+    [
+      8,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      5,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      4,
+      0
+    ],
+    [
+      0,
+      4,
+      1,
+      4
+    ]
+  ],
+  "state_order": [
+    "S1_STATIC",
+    "S2_WALK",
+    "S3_RUN",
+    "S4_STAIR"
+  ]
+}

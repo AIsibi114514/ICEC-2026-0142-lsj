@@ -51,13 +51,18 @@ STATE_COLOR = {
 }
 AXIS_COLOR = {"X": "#7BAFD4", "Y": "#E8B36A", "Z": "#C97C7C", "MAG": "#1F2A38"}
 
-WINDOW_S = 2.0          # 切窗长度（秒）
+WINDOW_S = 1.0          # 切窗长度（秒）：1.0s ≈ 1.6 个慢走步态周期，是按实测录制时长标定的
 WINDOW_OVERLAP = 0.0    # 不重叠
-TRIM_HEAD_S = 3.0       # 丢掉开头 3 秒（放手机、站定基线，因人而异）
-TRIM_TAIL_S = 1.5       # 丢掉结尾 1.5 秒（掏手机、点停止）
+TRIM_HEAD_S = 3.0       # 丢弃开头（放手机、站定的基线过程），实际按录制时长自适应收缩
+TRIM_TAIL_S = 1.5       # 丢弃结尾（掏手机、点停止），同样自适应
+MIN_TRIM_HEAD = 0.8     # 自适应下限：再短就切到有效动作了
+MIN_TRIM_TAIL = 0.4
+
+GRAVITY_FC = 0.5        # 重力分离的低通截止频率（Hz）
+GRAVITY_DETECT = 3.0    # 低通后三轴模长均值 > 此值 → 判定为含重力数据
 
 MIN_SAMPLING_HZ = 50.0
-MIN_DURATION_S = 20.0
+MIN_DURATION_S = 5.0
 STATIC_STD_LIMIT = 0.15
 
 # Phyphox / Sensor Logger / Physics Toolbox 常见列名别名
@@ -71,15 +76,25 @@ COLUMN_ALIASES = {
         "absolute_acceleration", "acc_mag", "magnitude", "mag", "a_mag",
         "绝对加速度 (m/s^2)", "Betrag der Beschleunigung (m/s^2)",
     ],
-    "x": ["X (m/s^2)", "x", "X", "ax", "acc_x", "accX", "x_acc", "X-Achse (m/s^2)"],
-    "y": ["Y (m/s^2)", "y", "Y", "ay", "acc_y", "accY", "y_acc", "Y-Achse (m/s^2)"],
-    "z": ["Z (m/s^2)", "z", "Z", "az", "acc_z", "accZ", "z_acc", "Z-Achse (m/s^2)"],
+    "x": [
+        "X (m/s^2)", "x", "X", "ax", "acc_x", "accX", "x_acc", "X-Achse (m/s^2)",
+        "Acceleration x (m/s^2)", "Acceleration X (m/s^2)", "线性加速度 x (m/s^2)",
+    ],
+    "y": [
+        "Y (m/s^2)", "y", "Y", "ay", "acc_y", "accY", "y_acc", "Y-Achse (m/s^2)",
+        "Acceleration y (m/s^2)", "Acceleration Y (m/s^2)", "线性加速度 y (m/s^2)",
+    ],
+    "z": [
+        "Z (m/s^2)", "z", "Z", "az", "acc_z", "accZ", "z_acc", "Z-Achse (m/s^2)",
+        "Acceleration z (m/s^2)", "Acceleration Z (m/s^2)", "线性加速度 z (m/s^2)",
+    ],
 }
 
 
 def _norm_col(name: str) -> str:
-    """列名归一化：小写、统一上标 2、压缩空白、去掉单位括号。"""
-    s = str(name).strip().lower()
+    """列名归一化：去 BOM、小写、统一上标 2、压缩空白、去掉单位括号。"""
+    s = str(name).strip().lstrip("\ufeff")   # Excel/Phyphox 导出常带 UTF-8 BOM
+    s = s.lower()
     s = s.replace("²", "2").replace("^2", "2")
     s = s.replace("（", "(").replace("）", ")")
     return s
@@ -107,9 +122,15 @@ def detect_columns(df: pd.DataFrame) -> dict:
                 if key == "mag" and ("absolute" in nc or "magnitude" in nc or "绝对" in nc):
                     found = col
                     break
-                if key in ("x", "y", "z") and nc.strip().startswith(key):
-                    found = col
-                    break
+                if key in ("x", "y", "z"):
+                    s = nc.strip()
+                    # 兼容 "Acceleration x (m/s^2)" / "acc_x" / "xAcceleration" 等写法。
+                    # 只用 startswith 会漏掉 Phyphox 含重力版本导出的 "Acceleration x (m/s^2)"。
+                    if (s == key or s.startswith(key + " ") or s.endswith(" " + key)
+                            or f" {key} (" in s or f"_{key}" in s or f"-{key}" in s
+                            or s.startswith(key + "acc")):
+                        found = col
+                        break
         mapping[key] = found
 
     if mapping["time"] is None or mapping["x"] is None or mapping["y"] is None:
@@ -120,7 +141,55 @@ def detect_columns(df: pd.DataFrame) -> dict:
 
 
 # ----------------------------------------------------------------------------
-# 1. 读取与质量体检
+# 1. 重力分离（本实验可能采到「含 g」版本，必须先分离）
+# ----------------------------------------------------------------------------
+
+def _movavg(v: np.ndarray, w: int) -> np.ndarray:
+    """居中移动平均。用 cumsum 实现，比逐点 IIR 循环快两个数量级。"""
+    w = max(3, min(int(w), v.size))
+    c = np.cumsum(np.insert(v, 0, 0.0))
+    core = (c[w:] - c[:-w]) / w
+    if core.size == 0:
+        return np.full_like(v, float(v.mean()))
+    half = w // 2
+    tail_len = v.size - half - core.size
+    return np.concatenate([
+        np.full(half, core[0]),
+        core,
+        np.full(max(0, tail_len), core[-1]),
+    ])[:v.size]
+
+
+def estimate_gravity(x, y, z, fs: float, fc: float = GRAVITY_FC):
+    """低通估计重力向量。
+
+    物理依据：重力方向相对手机是**缓变**的（人走路时手机整体倾角变化 < 1 Hz），
+    而步态冲击是**快变**的（1–10 Hz）。所以一个截止 0.5 Hz 的低通就能把重力"捞"出来。
+    滑动窗口取 fs/fc 个点（400 Hz / 0.5 Hz = 800 点 = 2 秒），足以平滑掉整个步态周期。
+    """
+    w = int(round(fs / max(fc, 1e-6)))
+    return _movavg(x, w), _movavg(y, w), _movavg(z, w)
+
+
+def split_gravity(x, y, z, fs: float):
+    """分离重力，返回 (线性加速度三轴, 是否含重力, 重力模长)。
+
+    判据：静止段低通后的三轴模长 ≈ 9.8 → 数据含重力；≈ 0 → 已是不含 g 的版本。
+    含重力时做向量减法，结果等价于 Android 的 TYPE_LINEAR_ACCELERATION。
+
+    ⚠️ 这不是"修饰数据"，而是标准的传感器数据处理步骤：Phyphox 的「含 (g) 的加速度」
+    读到的是"重力 + 运动"的合矢量，不减去重力就无法判断"人有没有在动"——
+    因为静止时读数也是 9.8。原始 CSV 会原样保留在 raw_data/ 里，本步骤只发生在分析阶段。
+    """
+    gx, gy, gz = estimate_gravity(x, y, z, fs)
+    g_mag = float(np.mean(np.sqrt(gx ** 2 + gy ** 2 + gz ** 2)))
+    if g_mag <= GRAVITY_DETECT:
+        return (x, y, z), False, g_mag
+    return (x - gx, y - gy, z - gz), True, g_mag
+
+
+# ----------------------------------------------------------------------------
+# 2. 读取与质量体检
 # ----------------------------------------------------------------------------
 
 @dataclass
@@ -135,6 +204,10 @@ class Recording:
     mag: np.ndarray
     fs: float
     duration: float
+    gravity_removed: bool = False
+    gravity_mag: float = 0.0
+    trim_head: float = 0.0
+    trim_tail: float = 0.0
     issues: list = field(default_factory=list)
 
 
@@ -161,7 +234,10 @@ def load_recording(path: Path) -> Recording | None:
         print(f"  [跳过] {path.name}：文件名不含合法状态代号（应为 S1_STATIC/S2_WALK/S3_RUN/S4_STAIR）")
         return None
     try:
-        df = pd.read_csv(path)
+        try:
+            df = pd.read_csv(path, encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            df = pd.read_csv(path, encoding="gbk")   # 部分中文系统导出为 GBK
     except Exception as exc:  # noqa: BLE001
         print(f"  [跳过] {path.name}：读取失败 {exc}")
         return None
@@ -195,18 +271,31 @@ def load_recording(path: Path) -> Recording | None:
     fs = float(1.0 / np.median(dt)) if dt.size else 0.0
     duration = float(t[-1] - t[0])
 
+    # ---- 重力分离：含 g 的数据必须先减掉重力，否则静止时读数也是 9.8 ----
+    (x, y, z), has_g, g_mag = split_gravity(x, y, z, fs)
     mag = np.sqrt(x ** 2 + y ** 2 + z ** 2)
 
-    rec = Recording(path, state, rep, t, x, y, z, mag, fs, duration)
+    # ---- 自适应去头去尾：录制时长不足 30s 时按比例收缩，保住窗口长度一致 ----
+    trim_head = min(TRIM_HEAD_S, max(MIN_TRIM_HEAD, duration * 0.15))
+    trim_tail = min(TRIM_TAIL_S, max(MIN_TRIM_TAIL, duration * 0.08))
+
+    rec = Recording(path, state, rep, t, x, y, z, mag, fs, duration,
+                    gravity_removed=has_g, gravity_mag=g_mag,
+                    trim_head=trim_head, trim_tail=trim_tail)
 
     # ---- 体检 ----
     if fs < MIN_SAMPLING_HZ:
         rec.issues.append(f"采样率 {fs:.0f} Hz < {MIN_SAMPLING_HZ:.0f} Hz（可能混叠）")
     if duration < MIN_DURATION_S:
         rec.issues.append(f"时长 {duration:.1f}s < {MIN_DURATION_S:.0f}s")
+    elif duration < 20.0:
+        rec.issues.append(f"提示：时长 {duration:.1f}s 偏短（建议 30s，窗口数会偏少）")
+    usable = duration - trim_head - trim_tail
+    if usable < WINDOW_S:
+        rec.issues.append(f"有效时长 {usable:.1f}s 不足 1 个 {WINDOW_S:.0f}s 窗口")
     if state == "S1_STATIC" and np.std(mag) > STATIC_STD_LIMIT:
         rec.issues.append(f"静止段 std={np.std(mag):.3f} 偏大（手机可能晃动/被挤压）")
-    if state != "S1_STATIC" and np.sqrt(np.mean(mag ** 2)) < 0.8:
+    if state != "S1_STATIC" and np.sqrt(np.mean(mag ** 2)) < 0.5:
         rec.issues.append("运动段 RMS 过低（手机未贴合身体？或数据其实是静止段）")
     return rec
 
@@ -229,19 +318,22 @@ def load_all(data_dir: Path) -> list[Recording]:
 
 
 def print_check_report(recs: list[Recording]) -> bool:
-    print("\n" + "=" * 78)
+    print("\n" + "=" * 92)
     print("数据质量体检报告")
-    print("=" * 78)
-    print(f"{'文件':<34}{'状态':<11}{'采样率':>8}{'时长':>8}{'RMS':>8}  问题")
-    print("-" * 78)
+    print("=" * 92)
+    print(f"{'文件':<32}{'状态':<11}{'采样率':>7}{'时长':>7}{'RMS':>7}{'重力':>11}  问题")
+    print("-" * 92)
     all_ok = True
     for r in recs:
         rms = float(np.sqrt(np.mean(r.mag ** 2)))
-        flag = "OK" if not r.issues else "; ".join(r.issues)
-        if r.issues:
+        grav = f"已去除({r.gravity_mag:.2f})" if r.gravity_removed else "无"
+        severe = [i for i in r.issues if not i.startswith("提示")]
+        soft = [i for i in r.issues if i.startswith("提示")]
+        if severe:
             all_ok = False
-        print(f"{r.path.name[:33]:<34}{r.state:<11}{r.fs:>7.0f}Hz{r.duration:>7.1f}s{rms:>8.2f}  {flag}")
-    print("-" * 78)
+        flag = "; ".join(severe + soft) if r.issues else "OK"
+        print(f"{r.path.name[:31]:<32}{r.state:<11}{r.fs:>6.0f}Hz{r.duration:>6.1f}s{rms:>7.2f}{grav:>11}  {flag}")
+    print("-" * 92)
 
     counts = {s: sum(1 for r in recs if r.state == s) for s in STATES}
     print("各状态样本数：" + "  ".join(f"{s}={counts[s]}" for s in STATES))
@@ -264,7 +356,8 @@ def print_check_report(recs: list[Recording]) -> bool:
 
 def segment(rec: Recording, win_s: float = WINDOW_S, overlap: float = WINDOW_OVERLAP):
     """按时间切窗，返回 (起始秒, x, y, z, mag) 列表。"""
-    t0, t1 = TRIM_HEAD_S, max(TRIM_HEAD_S, rec.duration - TRIM_TAIL_S)
+    t0 = rec.trim_head
+    t1 = max(t0, rec.duration - rec.trim_tail)
     step = win_s * (1.0 - overlap)
     out = []
     start = t0
@@ -449,6 +542,15 @@ def train_tree(X, y, feats, depth=0, max_depth=4, min_samples=8, rng=None) -> No
     if lm.sum() == 0 or (~lm).sum() == 0:
         node.label = STATES[int(np.bincount(y, minlength=len(STATES)).argmax())]
         return node
+
+    # 剪枝：若分裂后左右两侧的多数类相同，这条分裂没有任何判别价值，
+    # 只会让导出的规则多一层无意义的 if（例如 if x>4.4 → 慢走 else → 慢走）。
+    left_major = int(np.bincount(y[lm], minlength=len(STATES)).argmax())
+    right_major = int(np.bincount(y[~lm], minlength=len(STATES)).argmax())
+    if left_major == right_major:
+        node.label = STATES[left_major]
+        return node
+
     node.feature, node.threshold = f, thr
     node.left = train_tree(X[lm], y[lm], feats, depth + 1, max_depth, min_samples, rng)
     node.right = train_tree(X[~lm], y[~lm], feats, depth + 1, max_depth, min_samples, rng)
@@ -487,6 +589,57 @@ def tree_to_dict(node: Node, feats: list[str]) -> dict:
     }
 
 
+def stratified_window_eval(df: pd.DataFrame, feats: list[str], k: int = 3, max_depth: int = 4):
+    """按窗口分层 K 折：保证每折训练集都包含全部 4 类。
+
+    什么时候才该用它：
+    当**每个状态只有 1 段录音**时，按文件分折会让训练集整类缺失（比如训练集里
+    根本没有 S1_STATIC），模型不可能学会识别它，准确率必然归零。这是分组划分
+    在小样本下的固有缺陷，不是代码 bug。
+
+    代价（必须在报告里写明）：
+    同一段录音切出的相邻窗口共享环境噪声与个人摆动习惯，窗口级划分相当于用
+    "同一条录音的兄弟窗口"去测，准确率会被系统性高估。所以它的结果只能标注为
+    **窗口级验证**，不能当作跨人、跨场景的泛化能力。
+    """
+    y_all = np.array([STATES.index(s) for s in df["state"]])
+    X_all = np.nan_to_num(df[feats].to_numpy(dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+
+    # 每个状态内部轮转分配，保证各类在每折中分布均匀
+    fold_of = np.full(len(df), -1, dtype=int)
+    for s in STATES:
+        idx = np.where(df["state"].to_numpy() == s)[0]
+        for j, i in enumerate(idx):
+            fold_of[i] = j % k
+
+    preds = np.full(len(df), -1, dtype=int)
+    for f in range(k):
+        te = fold_of == f
+        tr = ~te
+        if te.sum() == 0 or tr.sum() < 4 or len(np.unique(y_all[tr])) < 2:
+            continue
+        tree = train_tree(X_all[tr], y_all[tr], feats, max_depth=max_depth, min_samples=3)
+        for i in np.where(te)[0]:
+            preds[i] = STATES.index(predict_one(tree, X_all[i], feats))
+
+    return _score_preds(y_all, preds)
+
+
+def _score_preds(y_all: np.ndarray, preds: np.ndarray):
+    valid = preds >= 0
+    acc = float((preds[valid] == y_all[valid]).mean()) if valid.any() else 0.0
+    cm = np.zeros((len(STATES), len(STATES)), dtype=int)
+    for t, p in zip(y_all[valid], preds[valid]):
+        cm[t, p] += 1
+    recall, precision = {}, {}
+    for i, s in enumerate(STATES):
+        tot = cm[i].sum()
+        recall[s] = round(float(cm[i, i] / tot), 3) if tot else 0.0
+        col = cm[:, i].sum()
+        precision[s] = round(float(cm[i, i] / col), 3) if col else 0.0
+    return acc, cm, recall, precision
+
+
 def group_kfold_eval(df: pd.DataFrame, feats: list[str], k: int = 3, max_depth: int = 4):
     """按文件分折的交叉验证：真正检验"换一段新录音还能判对吗"。"""
     files = df["file"].unique()
@@ -507,20 +660,7 @@ def group_kfold_eval(df: pd.DataFrame, feats: list[str], k: int = 3, max_depth: 
         for i in np.where(test_mask)[0]:
             preds[i] = STATES.index(predict_one(tree, X_all[i], feats))
 
-    valid = preds >= 0
-    acc = float((preds[valid] == y_all[valid]).mean()) if valid.any() else 0.0
-    cm = np.zeros((len(STATES), len(STATES)), dtype=int)
-    for t, p in zip(y_all[valid], preds[valid]):
-        cm[t, p] += 1
-    recall = {}
-    for i, s in enumerate(STATES):
-        tot = cm[i].sum()
-        recall[s] = round(float(cm[i, i] / tot), 3) if tot else 0.0
-    precision = {}
-    for i, s in enumerate(STATES):
-        col = cm[:, i].sum()
-        precision[s] = round(float(cm[i, i] / col), 3) if col else 0.0
-    return acc, cm, recall, precision
+    return _score_preds(y_all, preds)
 
 
 # ----------------------------------------------------------------------------
@@ -559,7 +699,7 @@ def fig_waveforms(recs, out: Path, plt):
         ax.plot(r.t[m], r.y[m], lw=0.8, color=AXIS_COLOR["Y"], label="Y", alpha=0.85)
         ax.plot(r.t[m], r.z[m], lw=0.8, color=AXIS_COLOR["Z"], label="Z", alpha=0.85)
         ax.plot(r.t[m], r.mag[m], lw=1.6, color=AXIS_COLOR["MAG"], label="合加速度", alpha=0.95)
-        ax.axvspan(0, TRIM_HEAD_S, color="#F2F5F9", zorder=0)
+        ax.axvspan(0, r.trim_head, color="#F2F5F9", zorder=0)
         ax.set_ylabel("m/s²", fontsize=9)
         ax.set_title(f"{STATE_CN[state]}（{state}） · {r.path.name}", fontsize=10.5,
                      loc="left", color=STATE_COLOR[state], pad=6)
@@ -617,7 +757,7 @@ def fig_boxplot(df: pd.DataFrame, out: Path, plt):
     return p
 
 
-def fig_confusion(cm: np.ndarray, acc: float, out: Path, plt):
+def fig_confusion(cm: np.ndarray, acc: float, out: Path, plt, cv_label: str = ""):
     """图3：混淆矩阵（计数 + 行内召回率）。"""
     row_sum = cm.sum(axis=1, keepdims=True)
     norm = np.divide(cm, row_sum, out=np.zeros_like(cm, dtype=float), where=row_sum > 0)
@@ -636,7 +776,7 @@ def fig_confusion(cm: np.ndarray, acc: float, out: Path, plt):
             ax.text(j, i, f"{cm[i, j]}\n{v:.0%}", ha="center", va="center",
                     fontsize=10, color="white" if v > 0.55 else "#1F2A38",
                     fontweight="bold" if i == j else "normal")
-    ax.set_title(f"阈值规则混淆矩阵（按文件分折，总体准确率 {acc:.1%}）", fontsize=12.5, pad=14)
+    ax.set_title(f"阈值规则混淆矩阵（{cv_label}，总体准确率 {acc:.1%}）", fontsize=12.5, pad=14)
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="行内占比")
     ax.set_xticks(np.arange(-.5, len(STATES), 1), minor=True)
     ax.set_yticks(np.arange(-.5, len(STATES), 1), minor=True)
@@ -689,7 +829,7 @@ def fig_spectrum(recs, out: Path, plt):
     return p
 
 
-def fig_rule_flow(node: Node, acc: float, out: Path, plt):
+def fig_rule_flow(node: Node, acc: float, out: Path, plt, cv_label: str = ""):
     """图5：阈值决策树流程图（手绘框图）。"""
     lines = tree_to_pseudocode(node)
     height = max(3.4, 0.40 * len(lines) + 1.6)
@@ -712,7 +852,7 @@ def fig_rule_flow(node: Node, acc: float, out: Path, plt):
         indent = (len(line) - len(line.lstrip())) // 4
         ax.text(0.35 + indent * 0.42, y, stripped, fontsize=10.4,
                 family=mono, color=color, fontweight=weight, va="top")
-    ax.text(0.2, -0.55, f"按文件分折验证准确率 {acc:.1%}　·　零算力、可离线实时判断、规则完全可读",
+    ax.text(0.2, -0.55, f"{cv_label}准确率 {acc:.1%}　·　零算力、可离线实时判断、规则完全可读",
             fontsize=9.5, color="#5A6675", va="top")
     fig.tight_layout()
     p = out / "fig5_rule_flow.png"
@@ -768,22 +908,40 @@ def main():
     X = np.nan_to_num(df[feats].to_numpy(dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
     y = np.array([STATES.index(s) for s in df["state"]])
 
-    print(f"正在训练阈值规则（深度≤{args.max_depth}）……")
-    final_tree = train_tree(X, y, feats, max_depth=args.max_depth, min_samples=10)
+    # 每类录音数决定能否用严格的分组验证
+    files_per_state = {s: int(df.loc[df["state"] == s, "file"].nunique()) for s in STATES}
+    min_files = min(files_per_state.values()) if files_per_state else 0
+    # 样本少时下采样门槛必须跟着降，否则一次分裂都做不出来，树退化成单叶
+    min_samples = max(3, min(10, len(df) // 6))
 
-    print("正在进行按文件分折的交叉验证……")
-    acc, cm, recall, precision = group_kfold_eval(df, feats, k=min(3, len(df["file"].unique())), max_depth=args.max_depth)
+    print(f"正在训练阈值规则（深度≤{args.max_depth}，min_samples={min_samples}）……")
+    final_tree = train_tree(X, y, feats, max_depth=args.max_depth, min_samples=min_samples)
+
+    if min_files >= 2:
+        cv_mode = "按文件分折（严格，可反映跨录音泛化）"
+        print("正在进行按文件分折的交叉验证……")
+        acc, cm, recall, precision = group_kfold_eval(
+            df, feats, k=min(3, len(df["file"].unique())), max_depth=args.max_depth)
+    else:
+        cv_mode = "按窗口分层（宽松，仅窗口级验证）"
+        print("正在进行按窗口分层分折的交叉验证……")
+        print(f"[提示] 每类只有 {min_files} 段录音，按文件分折会让训练集整类缺失，")
+        print("       故改用窗口分层。该结果**不能**代表跨人/跨场景泛化能力，报告须注明。")
+        acc, cm, recall, precision = stratified_window_eval(df, feats, k=3, max_depth=args.max_depth)
 
     pseudo = tree_to_pseudocode(final_tree)
     rules = {
-        "rule_id": f"dt_depth{args.max_depth}_groupkfold",
+        "rule_id": f"dt_depth{args.max_depth}",
+        "cv_mode": cv_mode,
+        "files_per_state": files_per_state,
         "generated_by": "scripts/analyze_gait.py",
         "input_files": sorted(df["file"].unique().tolist()),
         "window_s": WINDOW_S,
         "n_windows": int(len(df)),
-        "as_pseudocode": [p.strip() for p in pseudo if not p.strip().startswith("if") or True],
+        "gravity_removed": sorted({r.path.name for r in recs if r.gravity_removed}),
+        "as_pseudocode": [p.strip() for p in pseudo],
         "tree": tree_to_dict(final_tree, feats),
-        "holdout_accuracy_by_file": round(acc, 4),
+        "cv_accuracy": round(acc, 4),
         "per_state_recall": recall,
         "per_state_precision": precision,
         "confusion_matrix": cm.tolist(),
@@ -798,7 +956,8 @@ def main():
     for p in pseudo:
         print(p)
     print("-" * 78)
-    print(f"按文件分折准确率：{acc:.1%}")
+    print(f"验证方式：{cv_mode}")
+    print(f"准确率：{acc:.1%}")
     for s in STATES:
         print(f"  {s:<10}{STATE_CN[s]:<8} 召回 {recall[s]:>5.1%}　精确 {precision[s]:>5.1%}　窗口数 {int((df['state'] == s).sum())}")
     print("=" * 78)
@@ -806,27 +965,28 @@ def main():
     # ---- 出图 ----
     print("\n正在生成图表……")
     plt = _setup_mpl()
+    cv_label = "按文件分折" if min_files >= 2 else "窗口级"
     figs = []
     try:
         figs.append(fig_waveforms(recs, fig_dir, plt))
         figs.append(fig_boxplot(df, fig_dir, plt))
-        figs.append(fig_confusion(cm, acc, fig_dir, plt))
+        figs.append(fig_confusion(cm, acc, fig_dir, plt, cv_label))
         figs.append(fig_spectrum(recs, fig_dir, plt))
-        figs.append(fig_rule_flow(final_tree, acc, fig_dir, plt))
+        figs.append(fig_rule_flow(final_tree, acc, fig_dir, plt, cv_label))
         for f in figs:
             print(f"  [图] {f.relative_to(root)}")
     except Exception as exc:  # noqa: BLE001
         print(f"  [!] 出图失败：{exc}")
 
     # ---- 结论草稿 ----
-    summary = build_summary(df, feats, pseudo, acc, recall, precision, cm)
+    summary = build_summary(df, feats, pseudo, acc, recall, precision, cm, cv_mode)
     (root / "analysis_summary.md").write_text(summary, encoding="utf-8")
     print(f"\n结论草稿已生成：analysis_summary.md（请据此改写 REPORT.md）")
     print(f"规则文件：threshold_rules.json")
     return 0
 
 
-def build_summary(df, feats, pseudo, acc, recall, precision, cm) -> str:
+def build_summary(df, feats, pseudo, acc, recall, precision, cm, cv_mode: str = "") -> str:
     def stat(s, k):
         v = df.loc[df["state"] == s, k].dropna()
         return f"{v.mean():.3f} ± {v.std():.3f}" if len(v) else "—"
@@ -842,8 +1002,9 @@ def build_summary(df, feats, pseudo, acc, recall, precision, cm) -> str:
         "# 自动生成的结论草稿（供改写进 REPORT.md）",
         "",
         f"- 输入文件数：{len(df['file'].unique())}",
-        f"- 窗口总数：{len(df)}（窗长 {WINDOW_S}s，去头 {TRIM_HEAD_S}s、去尾 {TRIM_TAIL_S}s）",
-        f"- 按文件分折准确率：**{acc:.1%}**",
+        f"- 窗口总数：{len(df)}（窗长 {WINDOW_S}s，去头去尾按录制时长自适应）",
+        f"- 验证方式：{cv_mode}",
+        f"- 准确率：**{acc:.1%}**",
         "",
         "## 各状态特征均值 ± 标准差",
         "",

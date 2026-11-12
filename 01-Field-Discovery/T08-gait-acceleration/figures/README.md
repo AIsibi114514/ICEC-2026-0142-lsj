@@ -8,7 +8,7 @@
 | `fig2_feature_boxplot.png` | 4 个关键特征的类间分布 | **慢走与上楼的箱体几乎完全重叠**——这就是它们只有 56% 召回的直接原因 |
 | `fig3_confusion_matrix.png` | 阈值规则的混淆矩阵 | 上楼有 4 个窗口被判成慢走 |
 | `fig4_freq_spectrum.png` | 各状态平均幅值谱 | 慢走 2.77 Hz 与快跑 2.85 Hz 几乎重合，步频判据失效 |
-| `fig5_rule_flow.png` | 阈值决策树流程图 | 4 层规则、4 个特征，可直接移植到设备端 |
+| `fig5_rule_flow.png` | 阈值决策树流程图 | 4 层规则、3 个特征（std_mag / p2p_mag / corr_xy），可直接移植到设备端 |
 
 重新生成：
 

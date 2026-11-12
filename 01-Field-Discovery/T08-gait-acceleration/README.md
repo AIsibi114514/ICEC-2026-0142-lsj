@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 4 份原始 CSV 波形文件 | `raw_data/*.csv`（实交 5 份 = 静止/慢走/快跑/上楼/下楼） | ✅ 已完成 |
 | 可视化图 | `figures/` 下 5 张图 | ✅ 已生成 |
-| 区分动作的阈值规则 | `threshold_rules.json` + 报告第 4.3 节决策树 | ✅ 已推导（4 层 4 特征） |
+| 区分动作的阈值规则 | `threshold_rules.json` + 报告第 4.3 节决策树 | ✅ 已推导（4 层 3 特征） |
 | 采集元信息 | `raw_data/sample_index.csv`（设备/场地/时长） | ✅ 已填 |
 
 > **过程记录建议**：本课题的交付口径是「4 份原始 CSV + 可视化图 + 阈值规则」，不强制现场照。但建议保留 Phyphox 界面截图（`raw_data/photos/`），它至少能佐证采样率、实验入口与数据形态，出问题时可回查。
@@ -117,23 +117,29 @@
 
 ```
 T08-gait-acceleration/
-├── README.md                      # 本文件：采集手册
+├── README.md                       # 本文件：采集手册
 ├── raw_data/
-│   ├── _DATA_DICTIONARY.md        # 字段说明（Phyphox 列名 → 含义）
-│   ├── sample_index.csv           # 12 条采集元信息登记表（手填）
-│   ├── _TEMPLATE_phyphox.csv      # Phyphox 导出格式样本（表头，用于核对列名）
-│   ├── photos/                    # 现场认证照
-│   ├── S1_STATIC_01_20261112-1530.csv
-│   ├── S1_STATIC_02_20261112-1532.csv
-│   ├── ...
-│   └── S4_STAIR_UP_03_20261112-1558.csv
+│   ├── _DATA_DICTIONARY.md         # 字段说明与列名映射（支持含 g / 线性加速度两种格式）
+│   ├── sample_index.csv            # 采集元信息登记表（5 条）
+│   ├── S1_STATIC_01_20261112-1624.csv
+│   ├── S2_WALK_01_20261112-1628.csv
+│   ├── S3_RUN_01_20261112-1640.csv
+│   ├── S4_STAIR_UP_01_20261112-1631.csv
+│   ├── S4_STAIR_DOWN_01_20261112-1632.csv
+│   ├── _archive_v1/                # 第一版数据（含 g、6–12 s），仅作对照，脚本不读取
+│   ├── photos/                     # Phyphox 界面截图 20 张（采样参数佐证）
+│   └── feature_table.csv           # 脚本产出：99 窗口 × 24 维特征
 ├── scripts/
-│   ├── analyze_gait.py            # 主分析脚本（切窗→特征→规则→出图）
+│   ├── analyze_gait.py             # 主分析脚本（重力判定→切窗→特征→规则→出图）
 │   ├── requirements.txt
-│   └── _selftest/                 # 合成数据自检，证明脚本逻辑可跑通
-├── figures/                       # 脚本输出的 5 张图
-└── REPORT.md                      # 实测报告（结论待填）
+│   └── _selftest/                  # 合成数据自检，证明脚本逻辑可跑通
+├── figures/                        # 脚本输出的 5 张图 + 说明
+├── threshold_rules.json            # 阈值规则 + 混淆矩阵 + 各项召回率
+├── analysis_summary.md             # 脚本自动生成的数值摘要
+└── REPORT.md                       # 实测报告
 ```
+
+> 第一版数据放在 `_archive_v1/` 而非删除，是因为 `REPORT.md` 第 2.3 节的两版对比需要它作为证据。脚本只扫描 `raw_data/` 顶层，不会误读归档目录。
 
 **命名格式**：`{状态代号}_{组号}_{YYYYMMDD-HHMM}.csv`
 - 状态代号只能是 `S1_STATIC` / `S2_WALK` / `S3_RUN` / `S4_STAIR_UP` / `S4_STAIR_DOWN`（脚本靠它读标签，写错会被跳过并告警）

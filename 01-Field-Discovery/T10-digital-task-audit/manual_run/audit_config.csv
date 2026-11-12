@@ -1,0 +1,3 @@
+key,value,unit,note
+ai_build_minutes,0,min,"AI 流水线一次性构建耗时：从提出需求到脚本跑通的实际时长（本次会话记录）"
+manual_setup_minutes,0,min,"人工处理的一次性准备耗时：如建表头、想清楚字段口径的时长"

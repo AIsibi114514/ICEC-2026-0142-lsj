@@ -16,7 +16,7 @@ lsj，信息与通信学院 2026 级，学号 2024400142（后四位 0142）。
 | 一 | 课题08 · 多姿态步态加速度特征采集与对比 | [`01-Field-Discovery/T08-gait-acceleration/`](01-Field-Discovery/T08-gait-acceleration/) | ✅ 已完成（5 类 · 99 窗口 · 79.8%） |
 | 一 | 课题10 · 日常数字任务耗时审计与 AI 批处理实证 | [`01-Field-Discovery/T10-digital-task-audit/`](01-Field-Discovery/T10-digital-task-audit/) | ✅ 已完成（真实提速 2.8 倍 · 回本点 53 样本） |
 | — | AI 协作过程留痕 | [`03-AI-Collaboration/`](03-AI-Collaboration/) | ✅ |
-| 二 | 工坊开放式项目挑战（8 选 1） | `02-20Days-Challenge/` | ⬜ 未开始（10/23 起） |
+| 二 | 项目四 · 校园通知提取工具 NoticeCatcher | [`02-20Days-Challenge/`](02-20Days-Challenge/) | 🟡 进行中（11-20 起运行） |
 
 ## 两个课题的核心结论
 
@@ -53,7 +53,7 @@ ICEC-2026-0142-lsj/
 │   ├── README.md                # 选题理由与交付自查
 │   ├── T08-gait-acceleration/   # 课题08（采集手册 / 报告 / 脚本 / 数据）
 │   └── T10-digital-task-audit/  # 课题10（样本 / 脚本 / 实测 / 人工计时）
-├── 02-20Days-Challenge/         # 第二阶段：工坊项目（待开始）
+├── 02-20Days-Challenge/         # 第二阶段：项目四 NoticeCatcher（源码/日志/迭代）
 ├── 03-AI-Collaboration/         # 技术决策记录（9 条，含踩坑归因）
 ├── check_delivery.py            # 提交前自检：逐项核对交付物、失效链接、破图
 └── .gitignore                   # 刻意不忽略 *.mp4 —— 考核要交视频，忽略会静默丢文件

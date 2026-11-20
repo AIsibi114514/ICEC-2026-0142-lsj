@@ -35,3 +35,17 @@ __pycache__/
 
 # v1 归档的旧截图不入库（体积大且已被报告批评为界面截图非现场照）
 **/_archive_v1/photos/
+
+# ---- 阶段二 NoticeCatcher ----
+# 本机 Python 解释器路径（因机器而异）
+.python-path.txt
+# 本地数据库：可由源码 + 收件箱重建
+02-20Days-Challenge/data/
+# 真实通知原文含同学姓名手机号，仅提交脱敏摘录（output/excerpts/）
+02-20Days-Challenge/inbox/*.txt
+02-20Days-Challenge/inbox/*.png
+02-20Days-Challenge/inbox/*.jpg
+02-20Days-Challenge/inbox/_processed/
+!02-20Days-Challenge/inbox/_example.notice.txt
+# 模拟日志：仅本机预演，绝不当成运行记录
+02-20Days-Challenge/docs/simulated_logs/

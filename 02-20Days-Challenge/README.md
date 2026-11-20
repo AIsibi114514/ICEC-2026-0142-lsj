@@ -205,7 +205,7 @@ python run.py status      # 待办概览
 python run.py selftest    # 抽取规则自测（3 个用例）
 python run.py digest      # 由日志生成迭代诊断报告
 python tools/weekly_report.py   # 生成七日周报（覆盖率 / 缺档 / 真实统计）
-python tools/simulate_logs.py   # 生成带 simulated 标记的样例（仅预演，不入库）
+python tests/test_log_purity.py # 校验 process_logs/ 只含真实运行记录
 ```
 
 注册每日自动运行：
@@ -273,13 +273,23 @@ git add -A && git commit -m "logs: 11-21 运行日志" && git push
 
 `git log -- process_logs/` 可直接核对每天的提交时间，这是本仓库作为过程证据的基本前提。
 
-模拟数据仅用于**预演阈值和演示**，**不属于运行记录**：文件名带 `SIM-` 前缀、每条记录带
-`"simulated": true`、`host_hash` 为 `simulate`。
+**本仓库不含任何模拟、合成或推测的日志。** 不提交预演数据，也不提供日志生成器——
+判断标准很简单：`process_logs/` 里的每条记录都必须能对应到一次真实运行的 `run_id`。
 
-其中 7 天窗口（11-20 ~ 11-26，316 条）的冻结快照作为**回归夹具**提交在
-`tests/fixtures/simulated_logs/`，只为验证 `log_digest.py` 的报告结构、断档检测与阈值在
-7 天形态下不出错；`docs/simulated_logs/` 仍是本机预演目录，已被 `.gitignore` 排除。
-真实覆盖率只统计 `process_logs/`，夹具不计入——`tests/test_fixture_integrity.py` 负责守住这条线。
+这条线由 `tests/test_log_purity.py` 守着，两件事会被它拦下：
+
+| 检查 | 拦什么 |
+| --- | --- |
+| 文件名必须是 `YYYY-MM-DD.jsonl` | 混入 `SIM-` 前缀或其他命名的文件 |
+| 记录不得带 `simulated` 字段 | 合成记录被写进真实遥测目录 |
+| 仓库内不得存在 `*simulated*` 目录 | 预演产物被误提交 |
+
+```bash
+python tests/test_log_purity.py
+# [ OK ] test_real_logs_contain_no_synthetic_records
+# [ OK ] test_no_simulated_directory_in_repo
+```
+
 
 ---
 
@@ -374,9 +384,10 @@ ICEC-2026-0142-lsj/
     ├── tools/
     │   ├── log_digest.py           # 日志 → 诊断报告
     │   ├── weekly_report.py        # 日志 → 七日周报
-    │   ├── simulate_logs.py        # 预演用样例（标记 simulated，不入库）
     │   └── register_task.ps1       # 注册定时任务
-    ├── tests/fixtures/             # 自测样例
+    ├── tests/
+    │   ├── fixtures/               # 抽取规则自测样例（通知文本）
+    │   └── test_log_purity.py      # 守住 process_logs/ 只含真实记录
     └── docs/
         ├── 7天运行排期.md
         ├── 七天验证方案.md

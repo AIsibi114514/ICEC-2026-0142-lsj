@@ -49,3 +49,5 @@ __pycache__/
 !02-20Days-Challenge/inbox/_example.notice.txt
 # 模拟日志：仅本机预演，绝不当成运行记录
 02-20Days-Challenge/docs/simulated_logs/
+# 例外：7 天窗口的冻结快照以回归夹具形式入库（tests/fixtures/simulated_logs/），
+# 仍带 SIM- 前缀与 "simulated": true，纯用于测试，不计入真实覆盖率

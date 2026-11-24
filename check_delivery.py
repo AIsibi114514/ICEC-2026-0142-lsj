@@ -356,6 +356,16 @@ def check_project03() -> None:
         add(s, "OK" if f.exists() else "WARN", f"压力测试 {rel}",
             "" if f.exists() else "未生成，跑 run.py stress")
 
+    conf = P03 / "results" / "confidence_by_snr.csv"
+    n_conf_note = ""
+    if conf.exists():
+        with conf.open(encoding="utf-8-sig") as fh:
+            rows = list(csv.DictReader(fh))
+        hit = [r for r in rows if r["snr_db"] in ("5.0", "5") and r["conf_when_wrong_mean"]]
+        n_conf_note = f"{len(rows)} 档 SNR；5 dB 判错时置信度 {hit[0]['conf_when_wrong_mean']}" if hit else f"{len(rows)} 档 SNR"
+    add(s, "OK" if conf.exists() else "WARN", "判错时的置信度（“自信地错”）",
+        n_conf_note or "未生成，跑 scripts/check_confidence.py")
+
     # ---- 图文与日志 ----
     figs = sorted((P03 / "figures").glob("fig*.png")) if (P03 / "figures").exists() else []
     add(s, "OK" if len(figs) >= 8 else "FAIL", "结果图 8 张",

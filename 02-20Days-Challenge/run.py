@@ -463,6 +463,18 @@ def cmd_stress(tm: Telemetry) -> dict:
     return {"window": w, "fewshot": f, "novelty": nv, "gain": g}
 
 
+def cmd_confidence(tm: Telemetry) -> dict:
+    """统计"判错时的置信度"——抗噪实验里最容易漏掉的一半。"""
+    t0 = time.perf_counter()
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import check_confidence
+
+    check_confidence.main()
+    dur = (time.perf_counter() - t0) * 1000
+    tm.log("confidence", dur_ms=round(dur, 1), out="results/confidence_by_snr.csv")
+    return {"ok": True}
+
+
 def cmd_all(tm: Telemetry) -> dict:
     cmd_index(tm)
     cmd_features(tm)
@@ -472,6 +484,7 @@ def cmd_all(tm: Telemetry) -> dict:
     cmd_blind(tm, "score")
     cmd_blind(tm, "verify")
     cmd_noise(tm)
+    cmd_confidence(tm)
     cmd_stress(tm)
     cmd_export_csv(tm)
     cmd_figures(tm)
@@ -491,6 +504,7 @@ def main(argv: list[str] | None = None) -> int:
     pb = sub.add_parser("blind")
     pb.add_argument("action", choices=["seal", "predict", "score", "verify"])
     sub.add_parser("noise")
+    sub.add_parser("confidence")
     sub.add_parser("stress")
     pe = sub.add_parser("export-csv")
     pe.add_argument("--rate", type=int, default=1000)
@@ -513,6 +527,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_blind(tm, args.action)
         elif args.cmd == "noise":
             cmd_noise(tm)
+        elif args.cmd == "confidence":
+            cmd_confidence(tm)
         elif args.cmd == "stress":
             cmd_stress(tm)
         elif args.cmd == "export-csv":

@@ -263,10 +263,9 @@ def fig6_noise() -> str:
         "narrow_80_3500": "(b) 窄带 80~3500 Hz",
         "wide_80_7000": "(c) 宽带 80~7000 Hz",
     }
-    fig, axes = plt.subplots(1, len(frontends), figsize=(4.5 * len(frontends), 4.4), sharey=True)
-    if len(frontends) == 1:
-        axes = [axes]
-    for ax, fe in zip(axes, frontends):
+    fig, axes = plt.subplots(2, 2, figsize=(12.5, 8.4))
+    flat = axes.ravel()
+    for ax, fe in zip(flat[:3], frontends):
         for kind, marker, col in (("white", "o", "#1f77b4"), ("pink", "s", "#d62728")):
             pts = [r for r in rows if r["frontend"] == fe and r["noise"] == kind and r["snr_db"] != ""]
             xs = [float(r["snr_db"]) for r in pts]
@@ -287,9 +286,40 @@ def fig6_noise() -> str:
         ax.grid(alpha=0.3)
         ax.set_title(fe_title.get(fe, fe), fontsize=9, loc="left")
         ax.legend(fontsize=7, loc="lower left")
-    axes[0].set_ylabel("25 段盲测集准确率")
-    fig.suptitle("图 6  抗噪曲线：消噪前端不是越狠越好——窄带把 C5 的 4~8 kHz 指纹一起砍掉了", fontsize=10.5)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
+
+    # (d) 准确率崩了，但"判错时的置信度"反而涨到 1.0
+    ax = flat[3]
+    with open(os.path.join(RES, "confidence_by_snr.csv"), encoding="utf-8") as f:
+        conf_rows = [r for r in csv.DictReader(f) if r["snr_db"] != ""]
+    # 置信度表与抗噪表覆盖的 SNR 档位不完全相同（前者没有 -5 dB），按 SNR 对齐再画
+    acc_by_snr = {
+        float(r["snr_db"]): float(r["accuracy"])
+        for r in rows
+        if r["frontend"] == "none" and r["noise"] == "white" and r["snr_db"] != ""
+    }
+    xs = [float(r["snr_db"]) for r in conf_rows]
+    acc = [acc_by_snr[x] for x in xs]
+    xs_w = [float(r["snr_db"]) for r in conf_rows if r["conf_when_wrong_mean"]]
+    wrong = [float(r["conf_when_wrong_mean"]) for r in conf_rows if r["conf_when_wrong_mean"]]
+    right = [float(r["conf_when_right_mean"]) for r in conf_rows]
+    ax.plot(xs, acc, "o-", color="#1f77b4", label="准确率（无前端·白噪）")
+    ax.plot(xs_w, wrong, "s-", color="#d62728", label="判错时的置信度")
+    ax.plot(xs, right, "^--", color="#2ca02c", lw=1, label="判对时的置信度")
+    ax.set_xlabel("信噪比 SNR / dB（越小越吵）")
+    ax.set_ylabel("比例 / 置信度")
+    ax.set_xticks(xs)
+    ax.set_xticklabels([f"{int(x)}" for x in xs])
+    ax.invert_xaxis()
+    ax.set_ylim(-0.03, 1.08)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=7.5, loc="center left")
+    ax.set_title("(d) 准确率崩到 20%，判错时的置信度却涨到 1.000——「自信地错」", fontsize=9, loc="left")
+
+    flat[0].set_ylabel("准确率")
+    flat[2].set_ylabel("准确率")
+
+    fig.suptitle("图 6  抗噪：消噪前端不是越狠越好，而最危险的不是错，是错了还很有把握", fontsize=10.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     out = os.path.join(FIG, "fig6_noise_robustness.png")
     fig.savefig(out)
     plt.close(fig)

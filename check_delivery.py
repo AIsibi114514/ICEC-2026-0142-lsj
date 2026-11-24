@@ -366,6 +366,14 @@ def check_project03() -> None:
     add(s, "OK" if conf.exists() else "WARN", "判错时的置信度（“自信地错”）",
         n_conf_note or "未生成，跑 scripts/check_confidence.py")
 
+    base = P03 / "results" / "baseline_compare.csv"
+    n_base = 0
+    if base.exists():
+        with base.open(encoding="utf-8-sig") as fh:
+            n_base = len(list(csv.DictReader(fh)))
+    add(s, "OK" if base.exists() else "WARN", "规则树 vs 逻辑回归对照",
+        f"{n_base} 组条件" if base.exists() else "未生成，跑 run.py baseline")
+
     # ---- 图文与日志 ----
     figs = sorted((P03 / "figures").glob("fig*.png")) if (P03 / "figures").exists() else []
     add(s, "OK" if len(figs) >= 8 else "FAIL", "结果图 8 张",

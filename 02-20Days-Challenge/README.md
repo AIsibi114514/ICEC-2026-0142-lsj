@@ -13,7 +13,7 @@
 | 采集通道 | 手机麦克风 · 16 kHz / 16-bit / 单声道 |
 | 数据规模 | 5 工况 × 15 组 = 75 段 × 3.0 s，合计 225 s |
 | 技术栈 | Python 3.10+ · 纯 numpy（无 scipy / sklearn / librosa）· matplotlib 仅用于出图 |
-| 代码量 | 核心库 10 个模块（1564 行）+ 入口 533 行 + 脚本 633 行 = 2730 行（含中文注释） |
+| 代码量 | 核心库 10 个模块（1564 行）+ 入口 565 行 + 脚本 747 行 = 2876 行（含中文注释） |
 
 ---
 
@@ -72,6 +72,7 @@ python run.py blind score       # 启封打分
 python run.py noise             # 抗噪扫描（约 70 s）
 python run.py confidence        # 判错时的置信度（约 30 s）
 python run.py stress            # 四项压力测试（约 37 s）
+python run.py baseline          # 规则树 vs 逻辑回归的失效对照（约 30 s）
 python run.py figures           # 8 张图
 ```
 
@@ -136,6 +137,16 @@ f=features.extract(audio.trim_steady(x,sr),sr); print({k:round(v,3) for k,v in f
 
 而面试第 1 维度问的就是"凭什么"。逻辑回归能直接给出 `shaft_sideband_ratio` 权重第一（失衡的指纹）、`hf_noise_ratio` 权重第七（擦碰的指纹），我能指着这两个数解释整个判据。
 
+**但我也把两个模型放在同一组扰动下比过（REPORT §7.5）**，结论不是"逻辑回归更好"，而是**各有各的脆法**：
+
+| 条件 | 规则树（3 特征 4 阈值） | 逻辑回归（34 维） |
+| --- | --- | --- |
+| 干净 | 99% | 100% |
+| 增益 −6 dB | **59%（卡死）** | 81% |
+| 白噪 10 dB | 68% | **20%（塌了）** |
+
+规则树第二层就是 `rms_dbfs` 这个绝对音量阈值，增益一降全部落 C1；逻辑回归的 34 维一起平移，被整体推进 C5 的区域。**没有更稳的模型，只有稳在哪种扰动上。**
+
 ### 6.2 为什么整段一次 FFT，不用 Welch 平均
 
 Welch 能把噪声压下去，但会把频率分辨率从 0.5 Hz 退化到几十 Hz。而 **§3.1 的叶片数推定依赖"BPF/N 那条只差 36 Hz 的次谐波"**——Welch 一上，这个判据就没了。
@@ -170,6 +181,7 @@ Welch 能把噪声压下去，但会把频率分辨率从 0.5 Hz 退化到几十
 | 窗长 0.25 s → 1.5 s（15 dB 白噪） | 98.5% → 100% | `results/stress_window.csv` |
 | 未见故障检出（C3/C4/C5） | 30/30 = 100%，正常误报 7% | `results/stress_novelty.json` |
 | **判错时的置信度**（白噪 15 / 10 / 5 / 0 dB） | 0.375 / 0.719 / **0.998** / **1.000** | `results/confidence_by_snr.csv` |
+| 规则树 vs 逻辑回归（干净 / 增益 −6 dB / 白噪 10 dB） | 99→59→68% / 100→81→20%（各有各的脆法） | `results/baseline_compare.csv` |
 
 ---
 
@@ -192,7 +204,7 @@ Welch 能把噪声压下去，但会把频率分辨率从 0.5 Hz 退化到几十
 ├── README.md                     # 本文件：项目概述与交付对照
 ├── REPORT.md                     # ★ 完整实验报告（10 节 + 全部数字出处）
 ├── requirements.txt
-├── run.py                        # ★ 命令行入口（10 个子命令）
+├── run.py                        # ★ 命令行入口（11 个子命令）
 ├── sample_index.csv              # 75 段录音清单（时长/采样率/RMS/哈希）
 ├── raw_audio/                    # ★ 75 段原始 WAV（5 工况 × 15 组）
 ├── csv_series/                   # ★ 75 份时序 CSV（同上的 1 kHz 有损视图）
@@ -211,6 +223,7 @@ Welch 能把噪声压下去，但会把频率分辨率从 0.5 Hz 退化到几十
 ├── scripts/
 │   ├── make_figures.py           # 8 张图
 │   ├── check_confidence.py       # 判错时的置信度（"自信地错"有多大）
+│   ├── compare_baselines.py      # 规则树 vs 逻辑回归：各自脆在哪
 │   └── demo_csv_channel.py       # 证明特征提取器与声道无关（吃 CSV 也能跑）
 ├── features/                     # 特征表（34 维 / 31 维两版）
 ├── models/                       # 3 个模型 JSON（blind / blind-nolevel / full）

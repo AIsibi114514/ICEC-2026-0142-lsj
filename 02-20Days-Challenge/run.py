@@ -475,6 +475,18 @@ def cmd_confidence(tm: Telemetry) -> dict:
     return {"ok": True}
 
 
+def cmd_baseline(tm: Telemetry) -> dict:
+    """规则树 vs 逻辑回归在增益/噪声下的对照。"""
+    t0 = time.perf_counter()
+    sys.path.insert(0, os.path.join(ROOT, "scripts"))
+    import compare_baselines
+
+    compare_baselines.main()
+    dur = (time.perf_counter() - t0) * 1000
+    tm.log("baseline", dur_ms=round(dur, 1), out="results/baseline_compare.csv")
+    return {"ok": True}
+
+
 def cmd_all(tm: Telemetry) -> dict:
     cmd_index(tm)
     cmd_features(tm)
@@ -486,6 +498,7 @@ def cmd_all(tm: Telemetry) -> dict:
     cmd_noise(tm)
     cmd_confidence(tm)
     cmd_stress(tm)
+    cmd_baseline(tm)
     cmd_export_csv(tm)
     cmd_figures(tm)
     return {"ok": True}
@@ -506,6 +519,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("noise")
     sub.add_parser("confidence")
     sub.add_parser("stress")
+    sub.add_parser("baseline")
     pe = sub.add_parser("export-csv")
     pe.add_argument("--rate", type=int, default=1000)
     sub.add_parser("figures")
@@ -531,6 +545,8 @@ def main(argv: list[str] | None = None) -> int:
             cmd_confidence(tm)
         elif args.cmd == "stress":
             cmd_stress(tm)
+        elif args.cmd == "baseline":
+            cmd_baseline(tm)
         elif args.cmd == "export-csv":
             cmd_export_csv(tm, rate=args.rate)
         elif args.cmd == "figures":

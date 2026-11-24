@@ -1,0 +1,12 @@
+condition,param,acc_tree,acc_logistic
+clean,,0.9867,1.0
+gain_db,-24,0.5867,0.3467
+gain_db,-18,0.5867,0.4
+gain_db,-12,0.5867,0.6
+gain_db,-6,0.5867,0.8133
+gain_db,6,0.7867,0.9067
+gain_db,12,0.7867,0.8
+white_noise_snr_db,20,0.976,1.0
+white_noise_snr_db,15,0.8507,1.0
+white_noise_snr_db,10,0.6773,0.2027
+white_noise_snr_db,5,0.472,0.2

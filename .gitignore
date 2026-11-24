@@ -36,17 +36,27 @@ __pycache__/
 # v1 归档的旧截图不入库（体积大且已被报告批评为界面截图非现场照）
 **/_archive_v1/photos/
 
-# ---- 阶段二 NoticeCatcher ----
+# ---- 阶段二 · 项目三 声振诊断仪 ----
 # 本机 Python 解释器路径（因机器而异）
 .python-path.txt
-# 本地数据库：可由源码 + 收件箱重建
-02-20Days-Challenge/data/
-# 真实通知原文含同学姓名手机号，仅提交脱敏摘录（output/excerpts/）
-02-20Days-Challenge/inbox/*.txt
-02-20Days-Challenge/inbox/*.png
-02-20Days-Challenge/inbox/*.jpg
-02-20Days-Challenge/inbox/_processed/
-!02-20Days-Challenge/inbox/_example.notice.txt
-# 模拟/预演日志目录：一律不入库，防止被当成运行记录
-02-20Days-Challenge/docs/simulated_logs/
-**/SIM-*.jsonl
+
+# ⚠️ 刻意**不**忽略以下几类，因为它们是交付物本身：
+#   raw_audio/*.wav      —— 75 段原始录音，考核第①项的主体（8.7 MB，可以入库）
+#   csv_series/*.csv     —— 时序 CSV，考核第①项要求的序列
+#   results/blind_clips/ —— 25 段匿名化盲测音频，少了它盲测就无法复核
+#   photos/*.jpg         —— 实验照
+#   figures/*.png        —— 8 张结果图（报告正文直接引用，破图等于断链）
+#   models/*.json        —— 3 个模型（各几十 KB，是"凭什么判"的证据）
+#
+# 下面这些是**可从源码重新生成**的中间产物或本机缓存，不入库：
+
+# 单次运行的临时产物（run.py 各子命令的 stdout 落盘，仅供本机排查）
+02-20Days-Challenge/*.log
+02-20Days-Challenge/_scratch_*
+02-20Days-Challenge/**/_label_zoom.png
+02-20Days-Challenge/**/_blades*.png
+02-20Days-Challenge/**/_model_zoom.png
+
+# 环境相关
+02-20Days-Challenge/.venv/
+

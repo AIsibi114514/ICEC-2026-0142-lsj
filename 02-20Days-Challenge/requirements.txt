@@ -1,0 +1,16 @@
+# 本项目的依赖，比想象中少
+#
+# 核心库（src/vibdiag/）只依赖 numpy：
+#   特征提取、FFT、自相关、逻辑回归、决策树、评价指标
+#   全部手写，不用 scipy / sklearn / librosa。
+#   理由：评审要在没装过这些东西的机器上复现，少一个依赖少一个坑；
+#         而且 75 个样本根本用不上 sklearn。
+
+numpy>=1.24
+
+# 只有生成图表（scripts/make_figures.py）才需要。
+# 不想出图的话可以不装，其余 10 个子命令照常跑。
+# 中文字体用系统自带的 Microsoft YaHei（Windows），
+# Linux/macOS 上会回退到 DejaVu Sans，中文会变成方框——
+# 这是已知限制，不影响数据与结论。
+matplotlib>=3.7

@@ -1,0 +1,229 @@
+{
+ "n_samples": 75,
+ "n_features": 34,
+ "n_features_no_level": 31,
+ "C_sweep": [
+  {
+   "C": 0.03,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  },
+  {
+   "C": 0.1,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  },
+  {
+   "C": 0.3,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  },
+  {
+   "C": 1.0,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  },
+  {
+   "C": 3.0,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  },
+  {
+   "C": 10.0,
+   "cv_accuracy": 1.0,
+   "cv_macro_f1": 1.0
+  }
+ ],
+ "chosen_C": 0.03,
+ "cv_5fold": {
+  "n": 75,
+  "correct": 75,
+  "accuracy": 1.0,
+  "accuracy_ci95": [
+   0.9513,
+   1.0
+  ],
+  "macro_f1": 1.0,
+  "confusion": [
+   [
+    15,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    15,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    15,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    15,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    15
+   ]
+  ],
+  "classes": [
+   "C1_normal_low",
+   "C2_normal_high",
+   "C3_imbalance",
+   "C4_obstruction",
+   "C5_rubbing"
+  ],
+  "per_class": [
+   {
+    "class": "C1_normal_low",
+    "support": 15,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+   },
+   {
+    "class": "C2_normal_high",
+    "support": 15,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+   },
+   {
+    "class": "C3_imbalance",
+    "support": 15,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+   },
+   {
+    "class": "C4_obstruction",
+    "support": 15,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+   },
+   {
+    "class": "C5_rubbing",
+    "support": 15,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+   }
+  ]
+ },
+ "cv_5fold_no_level": {
+  "n": 75,
+  "correct": 75,
+  "accuracy": 1.0,
+  "accuracy_ci95": [
+   0.9513,
+   1.0
+  ],
+  "macro_f1": 1.0,
+  "confusion": [
+   [
+    15,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    15,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    15,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    15,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    15
+   ]
+  ]
+ },
+ "decision_tree_train_accuracy": 1.0,
+ "train_n": 50,
+ "test_n": 25,
+ "top_features": [
+  {
+   "feature": "shaft_sideband_ratio",
+   "weight": 0.2423
+  },
+  {
+   "feature": "env_cv",
+   "weight": 0.2004
+  },
+  {
+   "feature": "bpf_hz",
+   "weight": 0.1966
+  },
+  {
+   "feature": "shape_factor",
+   "weight": 0.1957
+  },
+  {
+   "feature": "peak_dbfs",
+   "weight": 0.1836
+  },
+  {
+   "feature": "kurtosis",
+   "weight": 0.176
+  },
+  {
+   "feature": "hf_noise_ratio",
+   "weight": 0.1745
+  },
+  {
+   "feature": "band_4000_8000",
+   "weight": 0.1721
+  },
+  {
+   "feature": "band_2000_4000",
+   "weight": 0.1716
+  },
+  {
+   "feature": "spec_spread",
+   "weight": 0.1715
+  },
+  {
+   "feature": "zcr",
+   "weight": 0.1685
+  },
+  {
+   "feature": "band_300_800",
+   "weight": 0.1647
+  }
+ ]
+}

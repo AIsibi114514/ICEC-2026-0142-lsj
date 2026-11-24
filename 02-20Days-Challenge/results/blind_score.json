@@ -1,0 +1,293 @@
+{
+ "n": 25,
+ "correct": 25,
+ "accuracy": 1.0,
+ "accuracy_ci95": [
+  0.8668,
+  1.0
+ ],
+ "macro_f1": 1.0,
+ "confusion": [
+  [
+   5,
+   0,
+   0,
+   0,
+   0
+  ],
+  [
+   0,
+   5,
+   0,
+   0,
+   0
+  ],
+  [
+   0,
+   0,
+   5,
+   0,
+   0
+  ],
+  [
+   0,
+   0,
+   0,
+   5,
+   0
+  ],
+  [
+   0,
+   0,
+   0,
+   0,
+   5
+  ]
+ ],
+ "classes": [
+  "C1_normal_low",
+  "C2_normal_high",
+  "C3_imbalance",
+  "C4_obstruction",
+  "C5_rubbing"
+ ],
+ "per_class": [
+  {
+   "class": "C1_normal_low",
+   "support": 5,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0
+  },
+  {
+   "class": "C2_normal_high",
+   "support": 5,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0
+  },
+  {
+   "class": "C3_imbalance",
+   "support": 5,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0
+  },
+  {
+   "class": "C4_obstruction",
+   "support": 5,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0
+  },
+  {
+   "class": "C5_rubbing",
+   "support": 5,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0
+  }
+ ],
+ "detail": [
+  {
+   "clip": "B01",
+   "true": "C4_obstruction",
+   "pred": "C4_obstruction",
+   "hit": 1,
+   "confidence": "0.8486",
+   "source_file": "C4_obstruction_13.wav"
+  },
+  {
+   "clip": "B02",
+   "true": "C3_imbalance",
+   "pred": "C3_imbalance",
+   "hit": 1,
+   "confidence": "0.7422",
+   "source_file": "C3_imbalance_15.wav"
+  },
+  {
+   "clip": "B03",
+   "true": "C5_rubbing",
+   "pred": "C5_rubbing",
+   "hit": 1,
+   "confidence": "0.7737",
+   "source_file": "C5_rubbing_15.wav"
+  },
+  {
+   "clip": "B04",
+   "true": "C3_imbalance",
+   "pred": "C3_imbalance",
+   "hit": 1,
+   "confidence": "0.7166",
+   "source_file": "C3_imbalance_12.wav"
+  },
+  {
+   "clip": "B05",
+   "true": "C1_normal_low",
+   "pred": "C1_normal_low",
+   "hit": 1,
+   "confidence": "0.7994",
+   "source_file": "C1_normal_low_14.wav"
+  },
+  {
+   "clip": "B06",
+   "true": "C3_imbalance",
+   "pred": "C3_imbalance",
+   "hit": 1,
+   "confidence": "0.7398",
+   "source_file": "C3_imbalance_13.wav"
+  },
+  {
+   "clip": "B07",
+   "true": "C4_obstruction",
+   "pred": "C4_obstruction",
+   "hit": 1,
+   "confidence": "0.8385",
+   "source_file": "C4_obstruction_12.wav"
+  },
+  {
+   "clip": "B08",
+   "true": "C1_normal_low",
+   "pred": "C1_normal_low",
+   "hit": 1,
+   "confidence": "0.8165",
+   "source_file": "C1_normal_low_12.wav"
+  },
+  {
+   "clip": "B09",
+   "true": "C2_normal_high",
+   "pred": "C2_normal_high",
+   "hit": 1,
+   "confidence": "0.5813",
+   "source_file": "C2_normal_high_12.wav"
+  },
+  {
+   "clip": "B10",
+   "true": "C2_normal_high",
+   "pred": "C2_normal_high",
+   "hit": 1,
+   "confidence": "0.5433",
+   "source_file": "C2_normal_high_15.wav"
+  },
+  {
+   "clip": "B11",
+   "true": "C2_normal_high",
+   "pred": "C2_normal_high",
+   "hit": 1,
+   "confidence": "0.5375",
+   "source_file": "C2_normal_high_11.wav"
+  },
+  {
+   "clip": "B12",
+   "true": "C5_rubbing",
+   "pred": "C5_rubbing",
+   "hit": 1,
+   "confidence": "0.8106",
+   "source_file": "C5_rubbing_13.wav"
+  },
+  {
+   "clip": "B13",
+   "true": "C2_normal_high",
+   "pred": "C2_normal_high",
+   "hit": 1,
+   "confidence": "0.5453",
+   "source_file": "C2_normal_high_14.wav"
+  },
+  {
+   "clip": "B14",
+   "true": "C4_obstruction",
+   "pred": "C4_obstruction",
+   "hit": 1,
+   "confidence": "0.7645",
+   "source_file": "C4_obstruction_14.wav"
+  },
+  {
+   "clip": "B15",
+   "true": "C5_rubbing",
+   "pred": "C5_rubbing",
+   "hit": 1,
+   "confidence": "0.8108",
+   "source_file": "C5_rubbing_11.wav"
+  },
+  {
+   "clip": "B16",
+   "true": "C4_obstruction",
+   "pred": "C4_obstruction",
+   "hit": 1,
+   "confidence": "0.8041",
+   "source_file": "C4_obstruction_11.wav"
+  },
+  {
+   "clip": "B17",
+   "true": "C5_rubbing",
+   "pred": "C5_rubbing",
+   "hit": 1,
+   "confidence": "0.8152",
+   "source_file": "C5_rubbing_12.wav"
+  },
+  {
+   "clip": "B18",
+   "true": "C3_imbalance",
+   "pred": "C3_imbalance",
+   "hit": 1,
+   "confidence": "0.6898",
+   "source_file": "C3_imbalance_14.wav"
+  },
+  {
+   "clip": "B19",
+   "true": "C5_rubbing",
+   "pred": "C5_rubbing",
+   "hit": 1,
+   "confidence": "0.8381",
+   "source_file": "C5_rubbing_14.wav"
+  },
+  {
+   "clip": "B20",
+   "true": "C1_normal_low",
+   "pred": "C1_normal_low",
+   "hit": 1,
+   "confidence": "0.7353",
+   "source_file": "C1_normal_low_13.wav"
+  },
+  {
+   "clip": "B21",
+   "true": "C1_normal_low",
+   "pred": "C1_normal_low",
+   "hit": 1,
+   "confidence": "0.8605",
+   "source_file": "C1_normal_low_15.wav"
+  },
+  {
+   "clip": "B22",
+   "true": "C3_imbalance",
+   "pred": "C3_imbalance",
+   "hit": 1,
+   "confidence": "0.7448",
+   "source_file": "C3_imbalance_11.wav"
+  },
+  {
+   "clip": "B23",
+   "true": "C1_normal_low",
+   "pred": "C1_normal_low",
+   "hit": 1,
+   "confidence": "0.7815",
+   "source_file": "C1_normal_low_11.wav"
+  },
+  {
+   "clip": "B24",
+   "true": "C2_normal_high",
+   "pred": "C2_normal_high",
+   "hit": 1,
+   "confidence": "0.6068",
+   "source_file": "C2_normal_high_13.wav"
+  },
+  {
+   "clip": "B25",
+   "true": "C4_obstruction",
+   "pred": "C4_obstruction",
+   "hit": 1,
+   "confidence": "0.8754",
+   "source_file": "C4_obstruction_15.wav"
+  }
+ ]
+}

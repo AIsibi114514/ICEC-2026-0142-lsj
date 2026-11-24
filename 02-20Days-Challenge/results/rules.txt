@@ -1,0 +1,16 @@
+# CART(max_depth=3) 在 50 段训练样本上学到的判据（可直接移植为 if-else）
+# 特征口径：raw_audio 裁剪 0.5s ~ 0.5s 稳态段
+
+if skewness <= -0.1821:
+    if rms_dbfs <= -11.1499:
+        → C1_normal_low   (n=10  C1_normal_low:100%, C2_normal_high:0%, C3_imbalance:0%, C4_obstruction:0%, C5_rubbing:0%)
+    else:  # rms_dbfs > -11.1499
+        if kurtosis <= 2.2094:
+            → C2_normal_high   (n=10  C1_normal_low:0%, C2_normal_high:100%, C3_imbalance:0%, C4_obstruction:0%, C5_rubbing:0%)
+        else:  # kurtosis > 2.2094
+            → C5_rubbing   (n=10  C1_normal_low:0%, C2_normal_high:0%, C3_imbalance:0%, C4_obstruction:0%, C5_rubbing:100%)
+else:  # skewness > -0.1821
+    if skewness <= -0.0957:
+        → C3_imbalance   (n=10  C1_normal_low:0%, C2_normal_high:0%, C3_imbalance:100%, C4_obstruction:0%, C5_rubbing:0%)
+    else:  # skewness > -0.0957
+        → C4_obstruction   (n=10  C1_normal_low:0%, C2_normal_high:0%, C3_imbalance:0%, C4_obstruction:100%, C5_rubbing:0%)

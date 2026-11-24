@@ -250,6 +250,141 @@ def check_t10() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 阶段二 · 项目三 声振诊断仪
+# ---------------------------------------------------------------------------
+
+P03 = ROOT / "02-20Days-Challenge"
+P03_CONDITIONS = ["C1_normal_low", "C2_normal_high", "C3_imbalance",
+                  "C4_obstruction", "C5_rubbing"]
+
+
+def _sha256(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with path.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def check_project03() -> None:
+    s = "项目三"
+    if not P03.exists():
+        add(s, "FAIL", "项目目录", "02-20Days-Challenge/ 不存在")
+        return
+
+    # ---- ① 20 分：原始数据 ----
+    wavs = sorted((P03 / "raw_audio").glob("C*_*.wav")) if (P03 / "raw_audio").exists() else []
+    per = {c: sum(1 for p in wavs if p.name.startswith(c + "_")) for c in P03_CONDITIONS}
+    add(s, "OK" if len(wavs) == 75 else "FAIL", "原始 WAV 数量",
+        f"{len(wavs)} 段（要求 5 工况 × 15 = 75）")
+    bad = [f"{c}({n})" for c, n in per.items() if n != 15]
+    add(s, "OK" if not bad else "FAIL", "5 工况 × 15 组齐备",
+        "每类 15 组" if not bad else f"不齐：{', '.join(bad)}")
+
+    csvs = sorted((P03 / "csv_series").glob("C*.csv")) if (P03 / "csv_series").exists() else []
+    add(s, "OK" if len(csvs) == 75 else "WARN", "时序 CSV（WAV 的 1 kHz 有损视图）",
+        f"{len(csvs)} 份" + ("" if len(csvs) == 75 else "，跑 run.py export-csv 生成"))
+
+    photos = sorted((P03 / "photos").glob("*.jpg")) if (P03 / "photos").exists() else []
+    add(s, "OK" if len(photos) >= 5 else "WARN", "实验照",
+        f"{len(photos)} 张" + ("" if len(photos) >= 5 else "，建议补异常工况特写"))
+
+    idx = P03 / "sample_index.csv"
+    n_idx = 0
+    if idx.exists():
+        with idx.open(encoding="utf-8-sig") as fh:
+            n_idx = len(list(csv.DictReader(fh)))
+    add(s, "OK" if n_idx == 75 else "FAIL", "采集清单 sample_index.csv",
+        f"{n_idx} 条（含时长/采样率/RMS/文件哈希）")
+
+    # ---- ② 20 分：特征提取代码 ----
+    feat_py = P03 / "src" / "vibdiag" / "features.py"
+    n_feat = 0
+    if feat_py.exists():
+        n_feat = len(re.findall(r'^\s{4}"[a-z0-9_]+",\s*$', feat_py.read_text(encoding="utf-8"), re.M))
+    add(s, "OK" if n_feat >= 30 else "FAIL", "特征提取代码与特征数",
+        f"features.py 定义 {n_feat} 维时域+频域特征")
+
+    for rel, desc in (("features/feature_table.csv", "特征表（75 行）"),
+                      ("features/feature_summary.csv", "每类均值/分离度汇总"),
+                      ("results/feature_importance.csv", "特征权重排名")):
+        f = P03 / rel
+        add(s, "OK" if f.exists() and f.stat().st_size > 200 else "FAIL", desc,
+            "" if f.exists() else "未生成，跑 run.py features / train")
+
+    dict_md = P03 / "docs" / "特征字典.md"
+    add(s, "OK" if dict_md.exists() else "WARN", "特征字典（逐维物理含义）",
+        "已写" if dict_md.exists() else "缺 docs/特征字典.md")
+
+    rules = P03 / "results" / "rules.txt"
+    add(s, "OK" if rules.exists() else "FAIL", "可移植 if-else 规则",
+        "results/rules.txt" if rules.exists() else "未生成，跑 run.py train")
+
+    # ---- ③ 20 分：盲测与抗噪 ----
+    import json as _json
+
+    bs = P03 / "results" / "blind_score.json"
+    if bs.exists():
+        d = _json.loads(bs.read_text(encoding="utf-8"))
+        note = f"{float(d.get('accuracy', 0)):.0%}（n={int(d.get('n', 0))}）"
+    else:
+        note = "未生成，跑 run.py blind score"
+    add(s, "OK" if bs.exists() else "FAIL", "盲测结果", note)
+
+    key, man = P03 / "results" / "blind_key.csv", P03 / "results" / "blind_manifest.json"
+    if key.exists() and man.exists():
+        m = _json.loads(man.read_text(encoding="utf-8"))
+        ok = _sha256(key) == m.get("key_sha256")
+        add(s, "OK" if ok else "FAIL", "盲测答案键未被改动",
+            f"sha256 一致（{m['key_sha256'][:16]}…）" if ok else "答案键与封存时的哈希不符！")
+    else:
+        add(s, "FAIL", "盲测答案键/封存记录", "缺 blind_key.csv 或 blind_manifest.json")
+
+    ns = P03 / "results" / "noise_sweep.csv"
+    n_cond, n_rep = 0, 0
+    if ns.exists():
+        with ns.open(encoding="utf-8-sig") as fh:
+            rows = list(csv.DictReader(fh))
+        n_cond = len(rows)
+        n_rep = max(int(float(r.get("repeats") or 1)) for r in rows)
+    add(s, "OK" if n_cond >= 30 else "WARN", "抗噪实验条件组数",
+        f"{n_cond} 组（最多 {n_rep} 次噪声重复）")
+
+    for rel in ("stress_gain.csv", "stress_fewshot.csv", "stress_window.csv", "stress_novelty.json"):
+        f = P03 / "results" / rel
+        add(s, "OK" if f.exists() else "WARN", f"压力测试 {rel}",
+            "" if f.exists() else "未生成，跑 run.py stress")
+
+    # ---- 图文与日志 ----
+    figs = sorted((P03 / "figures").glob("fig*.png")) if (P03 / "figures").exists() else []
+    add(s, "OK" if len(figs) >= 8 else "FAIL", "结果图 8 张",
+        f"{len(figs)}/8" + ("" if len(figs) >= 8 else "，跑 run.py figures"))
+
+    for name in ("README.md", "REPORT.md"):
+        rep = P03 / name
+        n_ph = count_placeholder(rep)
+        add(s, "OK" if rep.exists() and n_ph == 0 else "FAIL", f"{name} 无〔待填〕",
+            "已填完" if n_ph == 0 else f"还剩 {n_ph} 处")
+        exist, total = check_broken_images(rep)
+        add(s, "OK" if total and exist == total else "FAIL", f"{name} 内图片引用有效",
+            f"{exist}/{total} 可显示" + ("" if exist == total else "，GitHub 会破图"))
+
+    logs = sorted((P03 / "process_logs").glob("*.jsonl")) if (P03 / "process_logs").exists() else []
+    n_ev = 0
+    for f in logs:
+        with f.open(encoding="utf-8") as fh:
+            n_ev += sum(1 for _ in fh)
+    add(s, "OK" if n_ev > 0 else "FAIL", "运行日志 process_logs/*.jsonl",
+        f"{len(logs)} 个文件 / {n_ev} 条记录")
+
+    # 加速度计通道：项目要求双通道，本仓库只有麦克风。如实记为缺口，不隐藏。
+    accel = sorted((P03 / "raw_accel").glob("*.*")) if (P03 / "raw_accel").exists() else []
+    add(s, "OK" if accel else "WARN", "加速度计数据通道",
+        f"{len(accel)} 份" if accel else "未采集（本轮只有麦克风，见 docs/提交自查清单.md）")
+
+
+# ---------------------------------------------------------------------------
 # 输出
 # ---------------------------------------------------------------------------
 
@@ -268,6 +403,7 @@ def main() -> int:
     check_common()
     check_t08()
     check_t10()
+    check_project03()
 
     icon = {"OK": "[OK]  ", "WARN": "[WARN]", "FAIL": "[!!]  "}
     section = None

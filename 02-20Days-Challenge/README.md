@@ -13,7 +13,7 @@
 | 采集通道 | 手机麦克风 · 16 kHz / 16-bit / 单声道 |
 | 数据规模 | 5 工况 × 15 组 = 75 段 × 3.0 s，合计 225 s |
 | 技术栈 | Python 3.10+ · 纯 numpy（无 scipy / sklearn / librosa）· matplotlib 仅用于出图 |
-| 代码量 | 核心库 7 个模块 + 入口 + 出图脚本，约 1900 行（含中文注释） |
+| 代码量 | 核心库 10 个模块（1564 行）+ 入口 533 行 + 脚本 633 行 = 2730 行（含中文注释） |
 
 ---
 
@@ -57,7 +57,7 @@
 cd 02-20Days-Challenge
 python -m pip install -r requirements.txt   # 只有 numpy + matplotlib
 
-python run.py all      # 全流程：体检→特征→训练→盲测→抗噪→压力测试→CSV→图
+python run.py all      # 全流程：体检→特征→训练→盲测→抗噪→置信度→压力测试→CSV→图
 ```
 
 也可以分步跑，每条命令都会打印它做了什么、花了多少毫秒：
@@ -70,6 +70,7 @@ python run.py blind seal        # 匿名化 25 段留出样本（答案键记 sh
 python run.py blind predict     # 预测（全程不接触标签）
 python run.py blind score       # 启封打分
 python run.py noise             # 抗噪扫描（约 70 s）
+python run.py confidence        # 判错时的置信度（约 30 s）
 python run.py stress            # 四项压力测试（约 37 s）
 python run.py figures           # 8 张图
 ```
@@ -121,7 +122,7 @@ f=features.extract(audio.trim_steady(x,sr),sr); print({k:round(v,3) for k,v in f
    5 类工况 + 概率 + 特征权重（能指出"凭什么判成 C3"）
 ```
 
-一次特征提取约 **12.6 ms**（75 段共 934 ms），端到端可在手机端完成。
+一次特征提取约 **12 ms**（75 段共约 0.9 s），端到端可在手机端完成。
 
 ---
 
@@ -191,7 +192,7 @@ Welch 能把噪声压下去，但会把频率分辨率从 0.5 Hz 退化到几十
 ├── README.md                     # 本文件：项目概述与交付对照
 ├── REPORT.md                     # ★ 完整实验报告（10 节 + 全部数字出处）
 ├── requirements.txt
-├── run.py                        # ★ 命令行入口（11 个子命令）
+├── run.py                        # ★ 命令行入口（10 个子命令）
 ├── sample_index.csv              # 75 段录音清单（时长/采样率/RMS/哈希）
 ├── raw_audio/                    # ★ 75 段原始 WAV（5 工况 × 15 组）
 ├── csv_series/                   # ★ 75 份时序 CSV（同上的 1 kHz 有损视图）

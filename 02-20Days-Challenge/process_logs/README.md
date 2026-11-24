@@ -1,4 +1,4 @@
-﻿# process_logs —— 运行日志
+# process_logs —— 运行日志
 
 > 目录里每一个 `YYYY-MM-DD.jsonl` 都是**脚本实际运行时写出来的**，没有一条是手写或补录的。
 > 写入逻辑见 [`src/vibdiag/telemetry.py`](../src/vibdiag/telemetry.py)。

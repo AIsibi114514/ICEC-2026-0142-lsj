@@ -20,7 +20,9 @@ C1_normal_low_01.wav 这种口径命名的。要让两路"同构可比"，
 
 输出：
     raw_accel/C{n}_..._{nn}.csv       t_s,x,y,z（米/秒²，已去直流）
-    raw_accel/sample_index_accel.csv  每段的采样率/时长/是否含 g/RMS/sha256
+    raw_accel/sample_index_accel.csv  每段的采集时刻/采样率/时长/是否含 g/RMS/sha256
+                                      （export_time 取自 Phyphox 文件名里的时间戳，是**导出时刻**不是采集时刻；
+                                        取不到就留空——不用文件 mtime 冒充）
 
 诚实约定：
     · 脚本不做任何插值、不去噪、不补点。裁剪只切窗口，不改数值。
@@ -35,7 +37,9 @@ import argparse
 import csv
 import hashlib
 import io
+import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -57,8 +61,15 @@ def parse_phyphox_csv(path: Path) -> tuple[np.ndarray, np.ndarray, dict]:
     表头里时间列通常叫 "Time (s)"，三轴叫 "Acceleration x (m/s^2)" 之类，
     也可能是 "Linear Acceleration x (m/s^2)"。这里按关键字匹配，不写死。
     """
-    text = path.read_text(encoding="utf-8", errors="replace")
-    meta = {"raw_header": "", "comments": 0}
+    text = path.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff")
+    # Phyphox 中文/部分区域设置会用分号分隔，按前几行计数判断
+    head = "\n".join([l for l in text.splitlines() if l.strip()][:8])
+    delim = ";" if head.count(";") > head.count(",") else ","
+    meta = {"raw_header": "", "comments": 0, "preamble": [], "delim": delim}
+
+    def _cells(line: str) -> list[str]:
+        return [c.strip().strip('"') for c in line.split(delim)]
+
     rows: list[list[str]] = []
     header: list[str] | None = None
     for line in text.splitlines():
@@ -68,11 +79,17 @@ def parse_phyphox_csv(path: Path) -> tuple[np.ndarray, np.ndarray, dict]:
         if s.startswith("#"):
             meta["comments"] += 1
             continue
+        cells = _cells(s)
         if header is None:
-            header = [c.strip() for c in s.split(",")]
-            meta["raw_header"] = s
+            # 真实导出前两行是「实验名」「导出时刻」，不是表头。
+            # 表头判定只认第一格以 time 开头的那一行，其余当作前言跳过。
+            if any(c.lower().startswith("time") for c in cells) and len(cells) >= 2:
+                header = cells
+                meta["raw_header"] = s
+            else:
+                meta["preamble"].append(s)
             continue
-        rows.append([c.strip() for c in s.split(",")])
+        rows.append(cells)
     if header is None or not rows:
         raise ValueError(f"{path.name}: 没读到表头或数据行")
 
@@ -115,6 +132,38 @@ def sha16(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()[:16]
 
 
+# Phyphox 导出名形如「Linear Acceleration_2026-11-25_19-30-12.csv」
+_TS_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})[_\sT](\d{2})-(\d{2})-(\d{2})")
+
+
+def export_time(path: Path) -> str:
+    """取文件名里的时间戳。**这是导出时刻，不是采集时刻**，两者必须分清：
+
+    Phyphox 用「按下导出的那一刻」命名文件，一批文件同时导出会得到同一秒。
+    它能证明的只有"这批数据在 T 时刻被导出、顺序如此"，不能证明"每段在 T 时刻被录"。
+    真实采集时刻以手工采集清单为准（见 docs/加速度通道补采方案.md 9.5）。
+    取不到就返回空串，不猜。
+    """
+    m = _TS_RE.search(path.name)
+    if not m:
+        return ""
+    y, mo, d, hh, mi, ss = m.groups()
+    return f"{y}-{mo}-{d}T{hh}:{mi}:{ss}"
+
+
+def _chrono_key(p: Path) -> str:
+    """排序口径：优先用文件名里的导出时间戳，取不到才退回 mtime。
+
+    为什么不能只用 mtime：Phyphox「导出全部」会把一批文件写成同一秒，
+    此时 mtime 排序退化成目录遍历顺序，`--plan` 会把工况标签整体错位
+    —— 标签错了，后面所有交叉验证都是拿错误答案在自证。
+    """
+    ts = export_time(p)
+    if ts:
+        return ts
+    return datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def to_csv_bytes(t: np.ndarray, xyz: np.ndarray) -> bytes:
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\n")
@@ -137,10 +186,17 @@ def main() -> int:
 
     src = Path(args.src)
     dst = Path(args.dst)
-    files = sorted([p for p in src.rglob("*.csv") if p.resolve() != dst.resolve()], key=lambda p: p.stat().st_mtime)
+    files = sorted([p for p in src.rglob("*.csv") if p.resolve() != dst.resolve()], key=_chrono_key)
     if not files:
         print(f"[import] {src} 下没有 CSV", file=sys.stderr)
         return 1
+
+    # 导出批量写盘 → mtime 全相同 → 排序失去意义，标签会整体错位
+    mtimes = [int(p.stat().st_mtime) for p in files]
+    if len(mtimes) > 1 and len(set(mtimes)) < len(mtimes) and not all(export_time(p) for p in files):
+        print("[import] 警告：多个源文件 mtime 完全相同，且文件名里没有时间戳。\n"
+              "         按 --plan 自动分配可能把工况标签整体错位，请改用 --map 逐条指定。",
+              file=sys.stderr)
 
     # ---- 建立 filename → label 的分配 ----
     assign: list[tuple[Path, str]] = []
@@ -213,6 +269,7 @@ def main() -> int:
             "file": name,
             "label": lab,
             "index": counters[lab],
+            "export_time": export_time(f),
             "sample_rate": int(round(sr)),
             "n_raw": meta["n_raw"],
             "duration_raw": round(meta["n_raw"] / sr, 3),

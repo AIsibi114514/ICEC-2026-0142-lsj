@@ -28,9 +28,13 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 ACCEL = ROOT / "raw_accel"
 RESULTS = ROOT / "results"
-# 声学侧实测反推：低档 1199 r/min、高档 2170 r/min、5 叶
-SHAFT_LOW, SHAFT_HIGH = 20.0, 36.2
-BPF_LOW, BPF_HIGH = SHAFT_LOW * 5, SHAFT_HIGH * 5
+# 转频：2026-11-25 加速度通道直接实测（1 档 27.2 Hz / 2 档 33.3 Hz），
+# 取代此前"声学侧反推 1199/2170 r/min"的估计（实测 1632/2000 r/min，两者都不符）。
+SHAFT_LOW, SHAFT_HIGH = 27.2, 33.3
+# ⚠️ 叶片数尚未实数（照片被网罩挡住），BPF 仍按 5 叶占位计算，
+# 结果只能作参考，不能作为"BPF 是否可见"的结论依据。
+BLADES_ASSUMED = 5
+BPF_LOW, BPF_HIGH = SHAFT_LOW * BLADES_ASSUMED, SHAFT_HIGH * BLADES_ASSUMED
 
 
 def load(path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -66,10 +70,15 @@ def impact_count(mag: np.ndarray, k: float = 4.0) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--bpfs", default=f"{BPF_LOW:.0f},{BPF_HIGH:.0f}", help="低/高档 BPF（Hz）")
+    ap.add_argument("--shaft-low", type=float, default=SHAFT_LOW,
+                    help=f"低档转频先验（Hz），默认 {SHAFT_LOW}（声学反推）")
+    ap.add_argument("--shaft-high", type=float, default=SHAFT_HIGH,
+                    help=f"高档转频先验（Hz），默认 {SHAFT_HIGH}（声学反推）")
     ap.add_argument("--dir", default=str(ACCEL), help="数据目录，默认 raw_accel/（自检时可指向别处）")
     ap.add_argument("--out", default=str(RESULTS), help="输出目录，默认 results/")
     args = ap.parse_args()
     bpf_low, bpf_high = [float(v) for v in args.bpfs.split(",")]
+    shaft_low, shaft_high = args.shaft_low, args.shaft_high
 
     accel = Path(args.dir)
     results = Path(args.out)
@@ -84,22 +93,51 @@ def main() -> int:
 
     print(f"[accel] {len(rows)} 段\n")
     feats = []
+    deviate: list[tuple[str, float, float]] = []
+    weak1x: list[tuple[str, float, float, float]] = []
     for r in rows:
         t, xyz = load(accel / r["file"])
         sr = float(r["sample_rate"])
         mag = np.sqrt((xyz**2).sum(axis=1))
         x = mag - mag.mean()
         n = len(x)
-        spec = np.abs(np.fft.rfft(x * np.hanning(n))) / n
         freq = np.fft.rfftfreq(n, 1.0 / sr)
 
-        # 转频：在 10~50 Hz 内找最强峰。找不到就退化为 NaN，不瞎猜。
+        # ⚠️ 频域判据必须用「逐轴谱」，不能用合矢量 |a| 的谱。
+        # |a| = √(x²+y²+z²) 在信号过零附近是非线性的：取模会把单频成分整流，
+        # 实测（2026-11-26 试采模拟）z 轴 20 Hz 幅值 0.0074，取模后只剩 0.0031，
+        # 而 40 Hz 反而从 0.0022 涨到 0.0058 —— 1× 被压、2× 被抬。
+        # 由于 import_accel.py 已逐轴去直流，三轴都是纯交流，整流效应无法回避。
+        # 时域指标（RMS/峭度/峰值因子/冲击数）仍用合矢量，这是振动烈度的常规口径。
+        axis_specs = np.array([
+            np.abs(np.fft.rfft((xyz[:, k] - xyz[:, k].mean()) * np.hanning(n))) / n
+            for k in range(xyz.shape[1])
+        ])
+        spec_max = axis_specs.max(axis=0)          # 三轴取最强，取向无关
+
+        def amp_axes(f0: float, tol: float = 1.5) -> float:
+            """三轴分别取值后取最大——物理上就是"该频率在三轴中最强的那个"。"""
+            return float(max(amp_at(freq, s, f0, tol) for s in axis_specs))
+
+        # 转频：用「按档位的先验」，不是每段各自找最强峰。
+        # 为什么必须这样：C1 是低档(≈20 Hz)、C2~C5 是高档(≈36.2 Hz)。
+        # 若每段各自取 argmax，C3 完全可能锁到与 C1/C2 不同的峰上，
+        # a1_abs 就失去可比性——而"C3 的 1× 是否高于正常"这条判据正是靠它。
         band = (freq >= 10) & (freq <= 50)
-        f1 = float(freq[band][np.argmax(spec[band])]) if band.any() else float("nan")
-        a1 = amp_at(freq, spec, f1) if f1 == f1 else 0.0
-        a2 = amp_at(freq, spec, f1 * 2) if f1 == f1 else 0.0
-        a3 = amp_at(freq, spec, f1 * 3) if f1 == f1 else 0.0
-        ref = float(np.sqrt((spec**2).sum())) + 1e-20
+        f1_auto = float(freq[band][np.argmax(spec_max[band])]) if band.any() else float("nan")
+        f1 = shaft_low if r["label"].startswith("C1") else shaft_high
+        a1 = amp_axes(f1)
+        a2 = amp_axes(f1 * 2)
+        a3 = amp_axes(f1 * 3)
+        if f1_auto == f1_auto and abs(f1_auto - f1) > 0.25 * f1:
+            deviate.append((r["file"], round(f1_auto, 2), f1))
+        # 转频先验的硬性自检：若该频率上的幅值比整体 RMS 还低 20 倍，
+        # 说明这个先验根本不在这台机器的谱上，"1× 是否升高"就无从谈起。
+        # 2026-11-25 实测即撞上此情形：先验 20 Hz → 1× 0.0008，而 RMS 0.200。
+        rms_now = float(mag.std())
+        if rms_now > 0 and a1 * 20 < rms_now:
+            weak1x.append((r["file"], round(a1, 6), round(rms_now, 4), f1))
+        ref = float(np.sqrt((spec_max**2).sum())) + 1e-20
         nyq = sr / 2
         hf = (freq >= 0.7 * nyq)
         feats.append({
@@ -112,7 +150,8 @@ def main() -> int:
             "peak_mag": round(float(np.abs(x).max()), 4),
             "crest": round(float(np.abs(x).max() / (mag.std() + 1e-20)), 3),
             "kurtosis": round(kurtosis(x), 3),
-            "f1_hz": round(f1, 2) if f1 == f1 else "",
+            "f1_hz": round(f1, 2),
+            "f1_auto": round(f1_auto, 2) if f1_auto == f1_auto else "",
             # 绝对幅值（m/s²）才是"1× 是否升高"的正确判据；
             # 相对幅值会被"整体频谱一起变大"稀释，只留作参考。
             "a1_abs": round(float(a1), 5),
@@ -120,7 +159,7 @@ def main() -> int:
             "a1_rel": round(a1 / ref, 4),
             "a2_rel": round(a2 / ref, 4),
             "a3_rel": round(a3 / ref, 4),
-            "hf_ratio": round(float(spec[hf].sum() / ref) if hf.any() else 0.0, 5),
+            "hf_ratio": round(float(spec_max[hf].sum() / ref) if hf.any() else 0.0, 5),
             "impacts": impact_count(x),
         })
 
@@ -142,6 +181,18 @@ def main() -> int:
             return float(np.mean(v)) if v else float("nan")
         summary[lab] = {k: m(k) for k in ("rms_mag", "kurtosis", "a1_abs", "a2_abs", "a1_rel", "impacts")}
         print(f"{lab:22s}{len(g):4d}{m('rms_mag'):9.3f}{m('kurtosis'):8.2f}{m('a1_abs'):10.4f}{m('a2_abs'):10.4f}{m('impacts'):7.1f}")
+
+    if weak1x:
+        print(f"\n[严重] {len(weak1x)} 段的 1× 幅值比 RMS 低 20 倍以上，转频先验很可能不适用于这台机器：")
+        for fn, a1v, rmsv, prior in weak1x[:6]:
+            print(f"  · {fn}: 1×({prior:.1f} Hz)={a1v} m/s², RMS={rmsv} → 低 {rmsv/max(a1v,1e-12):.0f} 倍")
+        print("    先验证转频再谈 1× 判据；此时任何 C3/C2 的比值都是噪声之比，不得作为结论。")
+
+    if deviate:
+        print(f"\n[注意] {len(deviate)} 段的最强峰与转频先验相差 >25%：")
+        for fn, auto, prior in deviate[:6]:
+            print(f"  · {fn}: 自动最强峰 {auto} Hz / 先验 {prior} Hz"
+                  f"{'（先验可能不适用于该工况，或该段非稳态）'}")
 
     # ---- 判据可行性 ----
     print("\n[判据核对]")
@@ -167,6 +218,11 @@ def main() -> int:
     if rub == rub and nk == nk:
         verdicts.append(("C5 擦碰 → 时域冲击/峭度升高", f"峭度 {rub:.2f} vs 正常 {nk:.2f}" +
                          ("，冲击判据可用" if rub > nk * 1.3 else "，**冲击判据不可用：证明高频故障需声学通道**")))
+    verdicts.append(("谱中 100 Hz 的成分",
+                     "2026-11-25 断电惰转实测：断电后 0.25 s 内衰减 10 倍，先于整体振动消失 "
+                     "→ 判定为 2× 电源频率电磁分量，**不得作为任何机械判据**"))
+    verdicts.append(("叶片数",
+                     f"未实数；BPF 按 {BLADES_ASSUMED} 叶占位 = {BPF_LOW:.0f}/{BPF_HIGH:.0f} Hz，仅供定位参考"))
     verdicts.append(("4–8 kHz 擦碰指纹",
                      "物理上不在加速度计带宽内，本通道**永远看不到**，不得声称可替代声学"))
     for a, b in verdicts:

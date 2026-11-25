@@ -1,0 +1,5 @@
+# 数据文件必须按字节原样存储，不做换行符转换。
+# 原因：raw_accel/sample_index_accel.csv 里逐段记录了 sha256 前 16 位，
+# 若 clone 时被转成 CRLF，哈希就对不上，"可逐字节校验"这句话就失效了。
+*.csv -text
+*.jsonl -text

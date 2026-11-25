@@ -403,6 +403,109 @@ def check_project03() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 考核硬指标（对照《选拔考核大纲》，逐条查"能不能被评审当场核对"）
+# ---------------------------------------------------------------------------
+
+def _img_size(path: Path) -> tuple[int, int]:
+    """只读文件头拿图片宽高，不依赖 Pillow / PIL。"""
+    with path.open("rb") as f:
+        head = f.read(2)
+        if head == b"\xff\xd8":                       # JPEG：找 SOF 段
+            f.seek(2)
+            while True:
+                b = f.read(1)
+                if not b:
+                    return 0, 0
+                if b != b"\xff":
+                    continue
+                marker = f.read(1)
+                while marker == b"\xff":
+                    marker = f.read(1)
+                if marker in (b"\xc0", b"\xc1", b"\xc2", b"\xc3", b"\xc5", b"\xc6",
+                              b"\xc7", b"\xc9", b"\xca", b"\xcb", b"\xcd", b"\xce", b"\xcf"):
+                    f.read(3)
+                    h = int.from_bytes(f.read(2), "big")
+                    w = int.from_bytes(f.read(2), "big")
+                    return w, h
+                seg = int.from_bytes(f.read(2), "big")
+                f.seek(max(seg - 2, 0), 1)
+        elif head == b"\x89P":                         # PNG
+            f.seek(16)
+            w = int.from_bytes(f.read(4), "big")
+            h = int.from_bytes(f.read(4), "big")
+            return w, h
+    return 0, 0
+
+
+def check_rubric() -> None:
+    """大纲里那些"一翻目录就能判"的硬指标。抓到了就说明评审也会抓到。"""
+    s = "考核硬指标"
+
+    # 1) 阶段一：本人现场同框照片
+    photo_dir = T08 / "raw_data" / "photos"
+    shots = sorted(photo_dir.glob("*.jpg")) if photo_dir.exists() else []
+    screenshot_like = 0
+    for f in shots:
+        w, h = _img_size(f)
+        if w and h:
+            long_side, short_side = max(w, h), min(w, h)
+            if long_side / short_side >= 1.9:          # 手机截图常见 20:9 / 19.5:9
+                screenshot_like += 1
+    if not shots:
+        add(s, "FAIL", "阶段一·本人现场同框照片", "photos/ 为空，大纲明确要求")
+    elif screenshot_like == len(shots):
+        add(s, "FAIL", "阶段一·本人现场同框照片",
+            f"{screenshot_like}/{len(shots)} 张为竖屏截图比例，非现场照（见 photos/README.md）")
+    elif screenshot_like:
+        add(s, "WARN", "阶段一·本人现场同框照片",
+            f"{screenshot_like}/{len(shots)} 张疑似截图，其余为实拍")
+    else:
+        add(s, "OK", "阶段一·本人现场同框照片", f"{len(shots)} 张，均为相机拍摄比例")
+
+    # 2) 阶段二：盲测视频
+    vids = [p for p in ROOT.rglob("*") if p.suffix.lower() in (".mp4", ".mov", ".avi", ".mkv", ".webm")]
+    add(s, "OK" if vids else "FAIL", "阶段二·盲测演示视频",
+        f"{len(vids)} 个：" + "、".join(v.name for v in vids[:3]) if vids
+        else "仓库内 0 个视频，大纲项目三③要求「盲测准确率视频」，需走站内 Step 4 补交")
+
+    # 3) 目录规范：iterations/
+    it = ROOT / "02-20Days-Challenge" / "iterations"
+    n_it = len(list(it.glob("*.md"))) if it.exists() else 0
+    add(s, "OK" if n_it >= 2 else "FAIL", "阶段二·iterations/ 迭代记录",
+        f"{n_it} 篇" if n_it else "目录不存在（大纲 Step 0 目录树要求）")
+
+    # 4) 阶段二：跨多日连续 process_logs
+    logs = sorted((ROOT / "02-20Days-Challenge" / "process_logs").glob("*.jsonl"))
+    add(s, "OK" if len(logs) >= 2 else "FAIL", "阶段二·跨多日连续日志",
+        f"{len(logs)} 天" if len(logs) >= 2 else
+        f"仅 {len(logs)} 天，大纲要求「跨多日连续过程数据」（补录会违反学术诚信，只能如实交代）")
+
+    # 5) 录音口径：是否全部等长（等长说明经过统一裁剪，不是手机原始导出）
+    import wave
+    wavs = sorted((ROOT / "02-20Days-Challenge" / "raw_audio").glob("*.wav"))
+    if wavs:
+        frames = set()
+        for f in wavs:
+            with wave.open(str(f)) as w:
+                frames.add((w.getframerate(), w.getnframes()))
+        add(s, "WARN" if len(frames) == 1 else "OK", "录音时长/采样率一致性",
+            f"{len(wavs)} 段全部为 {list(frames)[0][1]} 帧 @ {list(frames)[0][0]} Hz，"
+            "属统一裁剪口径（说明见 raw_audio/README.md）" if len(frames) == 1
+            else f"{len(wavs)} 段，{len(frames)} 种规格")
+
+    # 6) csv_series 是音频降采样还是加速度
+    csvs = sorted((ROOT / "02-20Days-Challenge" / "csv_series").glob("*.csv"))
+    if csvs:
+        with csvs[0].open(encoding="utf-8") as fh:
+            rows = [ln.split(",") for ln in fh.read().splitlines()[1:400]]
+        vals = [float(r[1]) for r in rows if len(r) == 2]
+        looks_like_audio = bool(vals) and max(abs(v) for v in vals) <= 1.01 and min(vals) < 0
+        add(s, "WARN" if looks_like_audio else "OK", "csv_series 数据性质",
+            f"幅值 {min(vals):.2f}~{max(vals):.2f} 且含负值 → 归一化音频波形，非加速度（m/s²）"
+            if looks_like_audio else "幅值超出 ±1，需人工确认是否为加速度")
+
+
+# ---------------------------------------------------------------------------
 # 输出
 # ---------------------------------------------------------------------------
 
@@ -422,6 +525,7 @@ def main() -> int:
     check_t08()
     check_t10()
     check_project03()
+    check_rubric()
 
     icon = {"OK": "[OK]  ", "WARN": "[WARN]", "FAIL": "[!!]  "}
     section = None

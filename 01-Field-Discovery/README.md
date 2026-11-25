@@ -27,24 +27,24 @@
 ├── README.md                    # 本文件
 ├── T08-gait-acceleration/
 │   ├── README.md                # 采集执行手册（Phyphox 配置 + SOP + 质量自检）
-│   ├── REPORT.md                # 实测报告（结论待填）
+│   ├── REPORT.md                # 实测报告（已实测，结论见正文）
 │   ├── raw_data/                # 原始数据（5 份 CSV，另含 v1 归档）
 │   │   ├── _DATA_DICTIONARY.md  # 字段定义
-│   │   ├── sample_index.csv     # 采集元信息登记表（待填）
-│   │   └── photos/              # 现场认证照（待拍）
+│   │   ├── sample_index.csv     # 采集元信息登记表（已登记；场地/放置位置未记录，见该表 note 列）
+│   │   └── photos/              # Phyphox 界面截图（非现场同框照，性质见该目录 README）
 │   ├── scripts/
 │   │   ├── analyze_gait.py      # 切窗→24维特征→阈值规则→混淆矩阵→5张图
 │   │   └── _selftest/           # 合成数据自检（验证脚本可跑，不可用于报告）
 │   └── figures/                 # 脚本输出
 └── T10-digital-task-audit/
     ├── README.md                # 任务定义 + 计时协议 + 人机校验规则
-    ├── REPORT.md                # 实测报告（AI 数据已实测，人工待填）
+    ├── REPORT.md                # 实测报告（AI 侧实测；人工侧为参考工时口径，见 §3 表注）
     ├── samples/                 # 10 份通知样本 + 人工标注基准
     ├── scripts/
     │   ├── ai_extract.py        # 提取流水线
     │   └── run_benchmark.py     # 真实计时 + 准确率 + 出图
     ├── raw_data/                # 实测结果（已生成）
-    ├── manual_run/              # 人工计时表（待填）
+    ├── manual_run/              # 人工计时表（参考工时，非秒表实测）
     └── figures/                 # 实测图（已生成）
 ```
 
@@ -59,10 +59,11 @@
 - [x] `REPORT.md` 无〔待填〕占位，图表引用 5/5 有效
 - [x] `analysis_summary.md` 的数值已改写进报告正文（非原文粘贴）
 - [ ] **建议补采**：每类补到 2–3 组，才能做跨录音验证（当前每类 1 段，只能用窗口级验证）
+- [ ] **未满足大纲**：需要「本人现场同框照片」，当前 `photos/` 是界面截图。缺什么、怎么补，见 `T08-gait-acceleration/raw_data/photos/README.md` 第四节
 
 ### T10
 
-- [x] 10 个样本各 3 轮计时，`manual_run/timing_sheet.csv` 已填（人工中位 699 s）
+- [x] 10 个样本各 3 轮、`manual_run/timing_sheet.csv` 已填（人工中位 699 s）——**口径为按复杂度归一的参考工时，非秒表实测**，见 `REPORT.md` §3 表注
 - [x] `audit_config.csv` 的 `ai_build_minutes` = 40 分钟
 - [x] 重跑 `run_benchmark.py`，`figures/` 下 3 张图齐全
 - [x] `REPORT.md` 第 3 节已填，第 4 节用「132 万倍 vs 2.8 倍」的真实对比

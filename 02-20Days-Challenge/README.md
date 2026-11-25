@@ -42,14 +42,15 @@
 
 | 考核项 | 要求 | 本仓库对应位置 | 数量 |
 | --- | --- | --- | --- |
-| **① 20 分** | 5 种工况 × 15 组原始 WAV/CSV 序列 | [`raw_audio/`](raw_audio/) 75 段 WAV<br>[`csv_series/`](csv_series/) 75 份时序 CSV（**音频降采样，非加速度**，见该目录 README）<br>[`sample_index.csv`](sample_index.csv) 清单 | 75 + 75 |
+| **① 20 分** | 5 种工况 × 15 组原始 WAV/CSV 序列 | [`raw_audio/`](raw_audio/) 75 段 WAV<br>[`raw_accel/`](raw_accel/) **75 段真实加速度 CSV**（400 Hz、含 g、手机刚性固定，2026-11-25 补采）<br>[`csv_series/`](csv_series/) 75 份时序 CSV（**音频降采样，非加速度**，见该目录 README） | 75 + 75 + 75 |
 | | 实验照 | [`photos/`](photos/) | 8 张 |
 | **② 20 分** | 时域/频域特征提取代码 | [`src/vibdiag/features.py`](src/vibdiag/features.py)（34 维，含物理含义注释）<br>[`src/vibdiag/audio.py`](src/vibdiag/audio.py)（读写/裁剪/分帧/加噪/带通）<br>[`docs/特征字典.md`](docs/特征字典.md)（逐维定义） | 34 维 |
 | **③ 20 分** | 盲测准确率与抗噪报告 | [`results/blind_score.json`](results/blind_score.json) + [`figures/fig5_blind_confusion.png`](figures/fig5_blind_confusion.png)<br>[`results/noise_sweep.csv`](results/noise_sweep.csv) + [`figures/fig6_noise_robustness.png`](figures/fig6_noise_robustness.png)<br>[`REPORT.md` §5 §6](REPORT.md) | 39 组抗噪条件 |
 
-> **本表只列"有的"。** 缺的两项一定得说清：① 题目要求"麦克风**与**加速度计"两路，本轮只有麦克风（`REPORT.md` §8 第 6 条）；③ 要求"盲测准确率**视频**"，仓库内没有视频，需走站内 Step 4 上传。完整缺口表见根 `README.md`。
+> **两路都已补齐（11-25 更新）。** ① 麦克风 75 段 WAV + **加速度 75 段 CSV**（`raw_accel/`，2026-11-25 21:44 采）；③ 盲测视频已入库 [`demo/blind_test_replay_20261125.mp4`](demo/blind_test_replay_20261125.mp4)（29.6 s 初版，偏短，录制手册见 `docs/盲测复核与录制手册.md`）。
+> **仍缺的一项：叶片数未曾实数**（照片被网罩挡住），BPF 按 5 叶占位，不用于结论。完整缺口表见根 `README.md`。
 
-另外附带：**运行日志** [`process_logs/`](process_logs/)（每次跑脚本追加一条真实 JSONL）、**决策树规则** [`results/rules.txt`](results/rules.txt)（可移植成单片机 if-else）、**AI 排障记录** [`../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md`](../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md)、**三次实质迭代** [`iterations/`](iterations/)、**盲测复核与录制手册** [`docs/盲测复核与录制手册.md`](docs/盲测复核与录制手册.md)、**加速度通道补采方案** [`docs/加速度通道补采方案.md`](docs/加速度通道补采方案.md)（配套 `scripts/import_accel.py` / `scripts/accel_check.py`，已用合成数据自检）。
+另外附带：**运行日志** [`process_logs/`](process_logs/)（每次跑脚本追加一条真实 JSONL）、**决策树规则** [`results/rules.txt`](results/rules.txt)（可移植成单片机 if-else）、**AI 排障记录** [`../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md`](../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md)、**三次实质迭代** [`iterations/`](iterations/)、**盲测复核与录制手册** [`docs/盲测复核与录制手册.md`](docs/盲测复核与录制手册.md)、**加速度通道补采方案** [`docs/加速度通道补采方案.md`](docs/加速度通道补采方案.md)（配套 `scripts/import_accel.py` / `scripts/accel_check.py`，已用 75 段真实数据跑通）、**采集前预注册** [`docs/加速度通道预期与判据预注册.md`](docs/加速度通道预期与判据预注册.md)（预期写于采前，阈值未事后调整）。
 
 ---
 

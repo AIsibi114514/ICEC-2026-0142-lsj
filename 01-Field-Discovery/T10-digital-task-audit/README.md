@@ -21,7 +21,7 @@
 
 ## 1. 样本设计：10 份通知，每份埋一个坑
 
-样本在 `samples/N01.txt ~ N10.txt`，由 `samples/_make_samples.py` 生成（可复现）。**每份都对应一种真实存在的表达难点**，这是刻意设计的——如果 10 份都是格式规整的教务公文，测出来的耗时不具备代表性。
+样本在 `samples/N01.txt ~ N10.txt`，**是按本校通知格式构造的样本，不是逐份收集来的原始通知**；构造脚本已于 2026-11-25 移除，样本本身保留。**每份都对应一种真实存在的表达难点**，这是刻意设计的——如果 10 份都是格式规整的教务公文，测出来的耗时不具备代表性。
 
 | 样本 | 埋的坑 | 人工容易错在哪 |
 | --- | --- | --- |
@@ -202,7 +202,7 @@ samples/N*.txt
 
 | 考核要求 | 本仓库产物 | 状态 |
 | --- | --- | --- |
-| 任务样本 | `samples/N01~N10.txt` + `_make_samples.py` + `_ground_truth.csv` | ✅ |
+| 任务样本 | `samples/N01~N10.txt` + `_ground_truth.csv` | ✅ |
 | AI 脚本 / Prompt | `scripts/ai_extract.py`（含逐条注释说明每个启发式的由来） | ✅ |
 | 耗时对比表 | `raw_data/ai_timing.csv`（AI 实测）+ `manual_run/timing_sheet.csv`（人工 3 轮）+ `raw_data/benchmark_summary.json` | ✅ 已完成 |
 | 人机校验规则 | 本文第 5 节 + 第 2 节口径表 | ✅ |

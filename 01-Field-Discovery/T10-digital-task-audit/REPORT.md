@@ -261,7 +261,6 @@ AI 的单次成本极低但有**一次性构建成本**（写规则、调试、�
 | 路径 | 内容 |
 | --- | --- |
 | `samples/N01~N10.txt` | 10 份通知样本 |
-| `samples/_make_samples.py` | 样本构造脚本（可复现） |
 | `samples/_ground_truth.csv` | 人工标注基准（63 个判定点的来源） |
 | `scripts/ai_extract.py` | AI 提取流水线 |
 | `scripts/run_benchmark.py` | 计时 + 准确率评估 + 出图 |

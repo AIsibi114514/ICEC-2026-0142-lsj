@@ -70,8 +70,9 @@ def check_common() -> None:
 
     # 占位符残留（只扫文档与代码，排除本脚本与 .gitignore）
     leftovers = []
+    skip_dirs = {".git", ".venv", "node_modules", "__pycache__", "site-packages"}
     for p in ROOT.rglob("*"):
-        if not p.is_file() or ".git" in p.parts:
+        if not p.is_file() or (skip_dirs & set(p.parts)):
             continue
         if p.suffix not in (".md", ".py", ".csv", ".json", ".txt"):
             continue
@@ -467,7 +468,7 @@ def check_rubric() -> None:
     vids = [p for p in ROOT.rglob("*") if p.suffix.lower() in (".mp4", ".mov", ".avi", ".mkv", ".webm")]
     add(s, "OK" if vids else "FAIL", "阶段二·盲测演示视频",
         f"{len(vids)} 个：" + "、".join(v.name for v in vids[:3]) if vids
-        else "仓库内 0 个视频，大纲项目三③要求「盲测准确率视频」，需走站内 Step 4 补交")
+        else "仓库内 0 个视频，大纲项目三③要求「盲测准确率视频」；录制步骤见 docs/盲测复核与录制手册.md，成品走站内 Step 4 上传")
 
     # 3) 目录规范：iterations/
     it = ROOT / "02-20Days-Challenge" / "iterations"
@@ -476,10 +477,18 @@ def check_rubric() -> None:
         f"{n_it} 篇" if n_it else "目录不存在（大纲 Step 0 目录树要求）")
 
     # 4) 阶段二：跨多日连续 process_logs
+    #    口径：连续日期 >= 3 天才算 OK；2 天算 WARN（可能是复核复跑，不构成"连续多日"）；1 天 FAIL。
+    #    这样写是为了防止"多跑一天就自动变绿"——那等于给自己发合格证。
     logs = sorted((ROOT / "02-20Days-Challenge" / "process_logs").glob("*.jsonl"))
-    add(s, "OK" if len(logs) >= 2 else "FAIL", "阶段二·跨多日连续日志",
-        f"{len(logs)} 天" if len(logs) >= 2 else
-        f"仅 {len(logs)} 天，大纲要求「跨多日连续过程数据」（补录会违反学术诚信，只能如实交代）")
+    days = [f.stem for f in logs]
+    if len(days) >= 3:
+        add(s, "OK", "阶段二·跨多日连续日志", f"{len(days)} 天：{'、'.join(days)}")
+    elif len(days) == 2:
+        add(s, "WARN", "阶段二·跨多日连续日志",
+            f"{len(days)} 天（{'、'.join(days)}）；若其中一天是复核复跑，则不构成大纲要求的连续多日")
+    else:
+        add(s, "FAIL", "阶段二·跨多日连续日志",
+            f"仅 {'、'.join(days) or '0'} 天，大纲要求「跨多日连续过程数据」（补录会违反学术诚信，只能如实交代）")
 
     # 5) 录音口径：是否全部等长（等长说明经过统一裁剪，不是手机原始导出）
     import wave

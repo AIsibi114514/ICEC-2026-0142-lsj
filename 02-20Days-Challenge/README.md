@@ -49,7 +49,7 @@
 
 > **本表只列"有的"。** 缺的两项一定得说清：① 题目要求"麦克风**与**加速度计"两路，本轮只有麦克风（`REPORT.md` §8 第 6 条）；③ 要求"盲测准确率**视频**"，仓库内没有视频，需走站内 Step 4 上传。完整缺口表见根 `README.md`。
 
-另外附带：**运行日志** [`process_logs/`](process_logs/)（每次跑脚本追加一条真实 JSONL）、**决策树规则** [`results/rules.txt`](results/rules.txt)（可移植成单片机 if-else）、**AI 排障记录** [`../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md`](../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md)、**三次实质迭代** [`iterations/`](iterations/)。
+另外附带：**运行日志** [`process_logs/`](process_logs/)（每次跑脚本追加一条真实 JSONL）、**决策树规则** [`results/rules.txt`](results/rules.txt)（可移植成单片机 if-else）、**AI 排障记录** [`../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md`](../03-AI-Collaboration/log-20261124-acoustic-vibdiag.md)、**三次实质迭代** [`iterations/`](iterations/)、**盲测复核与录制手册** [`docs/盲测复核与录制手册.md`](docs/盲测复核与录制手册.md)。
 
 ---
 

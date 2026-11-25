@@ -31,10 +31,11 @@ RESULTS = ROOT / "results"
 # 转频：2026-11-25 加速度通道直接实测（1 档 27.2 Hz / 2 档 33.3 Hz），
 # 取代此前"声学侧反推 1199/2170 r/min"的估计（实测 1632/2000 r/min，两者都不符）。
 SHAFT_LOW, SHAFT_HIGH = 27.2, 33.3
-# ⚠️ 叶片数尚未实数（照片被网罩挡住），BPF 仍按 5 叶占位计算，
-# 结果只能作参考，不能作为"BPF 是否可见"的结论依据。
-BLADES_ASSUMED = 5
-BPF_LOW, BPF_HIGH = SHAFT_LOW * BLADES_ASSUMED, SHAFT_HIGH * BLADES_ASSUMED
+# 叶片数：2026-11-25 由用户实数 **3 叶**（此前按 5 叶占位是错的）。
+# 注意由此产生的重合：高档 BPF = 3 × 33.3 = 99.9 Hz，与 2× 电源电磁分量（100.0 Hz）
+# 只差 0.1 Hz，**高档的 BPF 判据永远不可分离**；只有低档能分开（81.6 vs 100.0）。
+BLADES = 3
+BPF_LOW, BPF_HIGH = SHAFT_LOW * BLADES, SHAFT_HIGH * BLADES
 
 
 def load(path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -201,7 +202,8 @@ def main() -> int:
     verdicts = []
     verdicts.append((
         f"采样率 {sr:.0f} Hz → 奈奎斯特 {nyq:.0f} Hz",
-        f"高档 BPF {bpf_high:.0f} Hz " + ("可观测" if nyq > bpf_high else "**不可观测（混叠，不得解释为特征）**"),
+        f"高档 BPF {bpf_high:.0f} Hz " + ("可观测" if nyq > bpf_high else "**不可观测（混叠，不得解释为特征）**")
+        + ("；但它与 100 Hz 电磁分量相差 <2 Hz，**实际不可分离**" if abs(bpf_high - 100) < 2 else ""),
     ))
     normal = [summary.get(l, {}).get("a1_abs", float("nan")) for l in labels if l.startswith(("C1", "C2"))]
     imb = summary.get("C3_imbalance", {}).get("a1_abs", float("nan"))
@@ -221,8 +223,10 @@ def main() -> int:
     verdicts.append(("谱中 100 Hz 的成分",
                      "2026-11-25 断电惰转实测：断电后 0.25 s 内衰减 10 倍，先于整体振动消失 "
                      "→ 判定为 2× 电源频率电磁分量，**不得作为任何机械判据**"))
-    verdicts.append(("叶片数",
-                     f"未实数；BPF 按 {BLADES_ASSUMED} 叶占位 = {BPF_LOW:.0f}/{BPF_HIGH:.0f} Hz，仅供定位参考"))
+    verdicts.append(("叶片数 / BPF",
+                     f"实数 {BLADES} 叶 → BPF = {BPF_LOW:.1f} / {BPF_HIGH:.1f} Hz。"
+                     f"高档 BPF 与 100 Hz 电磁分量仅差 {abs(BPF_HIGH - 100):.1f} Hz，**不可分离**；"
+                     f"BPF 判据只能在低档做"))
     verdicts.append(("4–8 kHz 擦碰指纹",
                      "物理上不在加速度计带宽内，本通道**永远看不到**，不得声称可替代声学"))
     for a, b in verdicts:

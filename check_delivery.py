@@ -398,9 +398,16 @@ def check_project03() -> None:
         f"{len(logs)} 个文件 / {n_ev} 条记录")
 
     # 加速度计通道：项目要求双通道，本仓库只有麦克风。如实记为缺口，不隐藏。
-    accel = sorted((P03 / "raw_accel").glob("*.*")) if (P03 / "raw_accel").exists() else []
-    add(s, "OK" if accel else "WARN", "加速度计数据通道",
-        f"{len(accel)} 份" if accel else "未采集（本轮只有麦克风，见 docs/提交自查清单.md）")
+    accel_dir = P03 / "raw_accel"
+    accel = sorted(p for p in accel_dir.glob("*.csv") if p.name != "sample_index_accel.csv") if accel_dir.exists() else []
+    has_tooling = (P03 / "scripts" / "import_accel.py").exists() and (P03 / "scripts" / "accel_check.py").exists()
+    if accel:
+        add(s, "OK", "加速度计数据通道", f"{len(accel)} 段（import_accel.py 规整，accel_check.py 体检）")
+    elif has_tooling:
+        add(s, "WARN", "加速度计数据通道",
+            "未采集，但补采工具已就位（docs/加速度通道补采方案.md + import_accel/accel_check）")
+    else:
+        add(s, "FAIL", "加速度计数据通道", "未采集且无补采方案，大纲要求麦克风与加速度计两路")
 
 
 # ---------------------------------------------------------------------------

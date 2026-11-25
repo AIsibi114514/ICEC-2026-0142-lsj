@@ -31,7 +31,7 @@
 │   ├── raw_data/                # 原始数据（5 份 CSV，另含 v1 归档）
 │   │   ├── _DATA_DICTIONARY.md  # 字段定义
 │   │   ├── sample_index.csv     # 采集元信息登记表（已登记；场地/放置位置未记录，见该表 note 列）
-│   │   └── photos/              # Phyphox 界面截图（非现场同框照，性质见该目录 README）
+│   │   └── photos/              # 1 张现场同框照（11-25 补拍）+ 20 张 Phyphox 界面截图
 │   ├── scripts/
 │   │   ├── analyze_gait.py      # 切窗→24维特征→阈值规则→混淆矩阵→5张图
 │   │   └── _selftest/           # 合成数据自检（验证脚本可跑，不可用于报告）
@@ -59,7 +59,8 @@
 - [x] `REPORT.md` 无〔待填〕占位，图表引用 5/5 有效
 - [x] `analysis_summary.md` 的数值已改写进报告正文（非原文粘贴）
 - [ ] **建议补采**：每类补到 2–3 组，才能做跨录音验证（当前每类 1 段，只能用窗口级验证）
-- [ ] **未满足大纲**：需要「本人现场同框照片」，当前 `photos/` 是界面截图。缺什么、怎么补，见 `T08-gait-acceleration/raw_data/photos/README.md` 第四节
+- [x] 「本人现场同框照片」已补 1 张（本人+手机+Phyphox+校园走廊，水印烧录时间/定位），但**拍于 11-25、非采集当天 11-12**，按「形式满足、时间不满足」记
+- [ ] **仍建议补**：按状态各补 1 张、在真实采集当下拍，见 `T08-gait-acceleration/raw_data/photos/README.md` 第四节
 
 ### T10
 

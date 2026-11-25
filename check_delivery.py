@@ -457,8 +457,9 @@ def check_rubric() -> None:
         add(s, "FAIL", "阶段一·本人现场同框照片",
             f"{screenshot_like}/{len(shots)} 张为竖屏截图比例，非现场照（见 photos/README.md）")
     elif screenshot_like:
+        real = len(shots) - screenshot_like
         add(s, "WARN", "阶段一·本人现场同框照片",
-            f"{screenshot_like}/{len(shots)} 张疑似截图，其余为实拍")
+            f"实拍 {real} 张 / 截图 {screenshot_like} 张；同框照拍摄日期是否与采集同日需自行核对")
     else:
         add(s, "OK", "阶段一·本人现场同框照片", f"{len(shots)} 张，均为相机拍摄比例")
 
@@ -490,7 +491,7 @@ def check_rubric() -> None:
                 frames.add((w.getframerate(), w.getnframes()))
         add(s, "WARN" if len(frames) == 1 else "OK", "录音时长/采样率一致性",
             f"{len(wavs)} 段全部为 {list(frames)[0][1]} 帧 @ {list(frames)[0][0]} Hz，"
-            "属统一裁剪口径（说明见 raw_audio/README.md）" if len(frames) == 1
+            "系录制口径所致（非事后裁剪，见 raw_audio/README.md）" if len(frames) == 1
             else f"{len(wavs)} 段，{len(frames)} 种规格")
 
     # 6) csv_series 是音频降采样还是加速度
